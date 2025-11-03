@@ -14,13 +14,22 @@ export default function Home() {
             A Next.js 14 application featuring a cosmic-themed interface with graph visualization
             capabilities powered by react-force-graph and state management with Zustand.
           </p>
-          <Link
-            href="/graph"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all hover:scale-105"
-          >
-            <Network className="h-5 w-5" />
-            Explore Knowledge Graph
-          </Link>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <Link
+              href="/library"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all hover:scale-105"
+            >
+              <Database className="h-5 w-5" />
+              Manage Library
+            </Link>
+            <Link
+              href="/graph"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all hover:scale-105"
+            >
+              <Network className="h-5 w-5" />
+              Explore Knowledge Graph
+            </Link>
+          </div>
         </section>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
