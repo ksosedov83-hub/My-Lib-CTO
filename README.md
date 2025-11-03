@@ -43,14 +43,22 @@ Open [http://localhost:3000](http://localhost:3000) to see the cosmic-themed app
 
 ```
 /src
-  /app              # Next.js App Router pages
-    layout.tsx      # Root layout with fonts
-    page.tsx        # Home page
-    globals.css     # Global styles with cosmic theme
-  /components       # React components
-    AppShell.tsx    # Main layout shell with header/sidebar
-  /stores           # Zustand state stores
-    useAppStore.ts  # Example app state store
+  /app                    # Next.js App Router pages
+    layout.tsx            # Root layout with fonts
+    page.tsx              # Home page
+    globals.css           # Global styles with cosmic theme
+  /components             # React components
+    AppShell.tsx          # Main layout shell with header/sidebar
+  /data                   # Seed data and initial state
+    initialData.ts        # 14 seed books, themes, and connections
+  /lib                    # Utility libraries
+    /pdf                  # PDF processing (future implementation)
+    /uploads              # File upload handling (future implementation)
+  /stores                 # Zustand state stores
+    useAppStore.ts        # App UI state (sidebar, theme)
+    useLibraryStore.ts    # Library data store with persistence
+  /types                  # TypeScript type definitions
+    index.ts              # Core types (Book, Connection, Theme, etc.)
 ```
 
 ## Tech Stack
@@ -85,13 +93,88 @@ Create new pages in the `/src/app` directory following the App Router convention
 
 ### Using State Management
 
-Import and use the Zustand store:
+The application uses Zustand for state management with two main stores:
+
+#### UI State (useAppStore)
 
 ```typescript
 import { useAppStore } from "@/stores/useAppStore";
 
-const { sidebarCollapsed, toggleSidebar } = useAppStore();
+const { sidebarCollapsed, toggleSidebar, theme, setTheme } = useAppStore();
 ```
+
+#### Library Data (useLibraryStore)
+
+The library store manages books, connections, and themes with full CRUD operations and localStorage persistence:
+
+```typescript
+import { useLibraryStore } from "@/stores/useLibraryStore";
+
+// Get data
+const books = useLibraryStore((state) => state.books);
+const themes = useLibraryStore((state) => state.themes);
+const connections = useLibraryStore((state) => state.connections);
+
+// CRUD operations
+const { addBook, updateBook, deleteBook, getBook } = useLibraryStore();
+const { addConnection, updateConnection, deleteConnection } = useLibraryStore();
+const { addTheme, updateTheme, deleteTheme } = useLibraryStore();
+
+// Selectors
+const { getBooksByTheme, getConnectionsByBook } = useLibraryStore();
+
+// Example: Add a new book
+const newBook = addBook({
+  title: "New Book",
+  author: "Author Name",
+  year: 2024,
+  themes: ["Philosophy"],
+  description: "Book description",
+});
+
+// Example: Get books by theme
+const philosophyBooks = getBooksByTheme("Philosophy");
+```
+
+#### Features
+
+- **Seed Data**: Initializes with 14 classic books, 8 themes, and 12 connections
+- **LocalStorage Persistence**: State automatically persists across page reloads with debounced writes (1s delay)
+- **Schema Versioning**: Supports data migration between schema versions
+- **Type Safety**: Fully typed with TypeScript interfaces
+
+### Data Model
+
+The application uses the following core data types:
+
+- **Book**: Represents a book with metadata, themes, notes, and attachments (cover images, PDFs, extracted notes)
+- **Connection**: Links between books with type (influences, references, contradicts, etc.), strength, and notes
+- **Theme**: Categories/tags for organizing books with names, colors, and descriptions
+- **Attachment Types**: CoverImage, PDFAttachment, ExtractedNote for future media handling
+
+See `/src/types/index.ts` for complete type definitions.
+
+### Future Features
+
+#### PDF Processing (`/src/lib/pdf`)
+
+Scaffolding is in place for future PDF ingestion:
+- Upload and attach PDF files to books
+- Extract text content from PDFs
+- Parse annotations, highlights, and bookmarks
+- Generate thumbnails and previews
+
+See `/src/lib/pdf/README.md` for implementation details.
+
+#### File Uploads (`/src/lib/uploads`)
+
+Scaffolding for cover image and file uploads:
+- Image upload with validation and optimization
+- Cloud storage integration (Vercel Blob, S3, Cloudinary)
+- Thumbnail generation and compression
+- Progress tracking
+
+See `/src/lib/uploads/README.md` for implementation details.
 
 ## License
 
