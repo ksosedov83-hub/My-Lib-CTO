@@ -1,5 +1,6 @@
 import AppShell from "@/components/AppShell";
 import { Rocket, Database, Network } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -9,10 +10,17 @@ export default function Home() {
           <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent mb-4">
             Welcome to the Cosmic Experience
           </h2>
-          <p className="text-purple-200/80 text-lg max-w-2xl mx-auto">
+          <p className="text-purple-200/80 text-lg max-w-2xl mx-auto mb-6">
             A Next.js 14 application featuring a cosmic-themed interface with graph visualization
             capabilities powered by react-force-graph and state management with Zustand.
           </p>
+          <Link
+            href="/graph"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all hover:scale-105"
+          >
+            <Network className="h-5 w-5" />
+            Explore Knowledge Graph
+          </Link>
         </section>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
