@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import AppShell from "@/components/AppShell";
 import BookForm from "@/components/BookForm";
 import DeleteConfirmDialog from "@/components/DeleteConfirmDialog";
+import ConnectionManagementPanel from "@/components/ConnectionManagementPanel";
 import Dialog from "@/components/ui/Dialog";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -19,6 +20,8 @@ import {
   Tag,
   Filter,
   BookMarked,
+  Link2,
+  X,
 } from "lucide-react";
 
 export default function LibraryPage() {
@@ -28,6 +31,7 @@ export default function LibraryPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [deletingBook, setDeletingBook] = useState<Book | null>(null);
+  const [viewingBookConnections, setViewingBookConnections] = useState<Book | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
 
@@ -211,6 +215,15 @@ export default function LibraryPage() {
                     Edit
                   </Button>
                   <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setViewingBookConnections(book)}
+                    className="flex-1"
+                  >
+                    <Link2 className="h-3 w-3" />
+                    Connections
+                  </Button>
+                  <Button
                     variant="danger"
                     size="sm"
                     onClick={() => setDeletingBook(book)}
@@ -262,6 +275,40 @@ export default function LibraryPage() {
         onClose={() => setDeletingBook(null)}
         onSuccess={handleDeleteSuccess}
       />
+
+      {viewingBookConnections && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div
+            className="relative max-w-5xl w-full bg-gradient-to-br from-purple-900/90 to-blue-900/90 backdrop-blur-xl border border-purple-500/30 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="book-connections-title"
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b border-purple-500/30 bg-gradient-to-r from-purple-900/95 to-blue-900/95 backdrop-blur-xl">
+              <div>
+                <h2
+                  id="book-connections-title"
+                  className="text-2xl font-bold text-purple-100 flex items-center gap-2"
+                >
+                  <Link2 className="h-6 w-6" />
+                  Connections
+                </h2>
+                <p className="text-sm text-purple-300 mt-1">{viewingBookConnections.title}</p>
+              </div>
+              <button
+                onClick={() => setViewingBookConnections(null)}
+                className="p-2 rounded-lg hover:bg-purple-500/20 transition-colors text-purple-200 hover:text-purple-100"
+                aria-label="Close connections"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <ConnectionManagementPanel bookId={viewingBookConnections.id} />
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
