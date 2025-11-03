@@ -45,22 +45,22 @@ export default function AppShell({ children }: AppShellProps) {
             <nav className="flex-1 overflow-y-auto p-4">
               <div className="space-y-2">
                 <a
-                  href="#"
+                  href="/"
+                  className="block px-4 py-2 rounded-lg text-purple-300 hover:bg-purple-500/10 transition-colors"
+                >
+                  Home
+                </a>
+                <a
+                  href="/graph"
                   className="block px-4 py-2 rounded-lg bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 transition-colors"
                 >
-                  Dashboard
+                  Knowledge Graph
                 </a>
                 <a
-                  href="#"
+                  href="/library-test"
                   className="block px-4 py-2 rounded-lg text-purple-300 hover:bg-purple-500/10 transition-colors"
                 >
-                  Explore
-                </a>
-                <a
-                  href="#"
-                  className="block px-4 py-2 rounded-lg text-purple-300 hover:bg-purple-500/10 transition-colors"
-                >
-                  Settings
+                  Library Test
                 </a>
               </div>
             </nav>
