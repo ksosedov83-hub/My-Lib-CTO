@@ -23,14 +23,14 @@ const CONNECTION_COLORS: Record<ConnectionType, string> = {
 };
 
 const CONNECTION_LABELS: Record<ConnectionType, string> = {
-  influences: "Influences",
-  references: "References",
-  contradicts: "Contradicts",
-  expands: "Expands",
-  "similar-theme": "Similar Theme",
-  chronological: "Chronological",
-  "author-connection": "Author Connection",
-  custom: "Custom",
+  influences: "Влияние",
+  references: "Ссылка",
+  contradicts: "Противоречие",
+  expands: "Расширение",
+  "similar-theme": "Схожая тема",
+  chronological: "Хронология",
+  "author-connection": "Связь авторов",
+  custom: "Особая",
 };
 
 export default function GraphLegend({
@@ -45,17 +45,17 @@ export default function GraphLegend({
     <div
       className={`bg-gradient-to-br from-purple-900/40 to-blue-900/30 backdrop-blur-sm border border-purple-500/20 rounded-lg p-4 shadow-lg ${className}`}
       role="complementary"
-      aria-label="Graph legend"
+      aria-label="Легенда графа"
     >
       <h3 className="text-sm font-semibold text-purple-100 mb-3 flex items-center gap-2">
         <Info className="h-4 w-4" />
-        Legend
+        Легенда
       </h3>
 
       {showThemes && themes.length > 0 && (
         <div className="mb-4">
           <h4 className="text-xs font-semibold text-purple-200/80 mb-2 uppercase tracking-wide">
-            Themes
+            Темы
           </h4>
           <div className="grid grid-cols-2 gap-2">
             {themes.map((theme) => (
@@ -77,7 +77,7 @@ export default function GraphLegend({
       {showConnections && (
         <div className="mb-4">
           <h4 className="text-xs font-semibold text-purple-200/80 mb-2 uppercase tracking-wide">
-            Connections
+            Связи
           </h4>
           <div className="grid grid-cols-2 gap-2">
             {(Object.keys(CONNECTION_COLORS) as ConnectionType[]).map((type) => (
@@ -99,7 +99,7 @@ export default function GraphLegend({
       {showOverlapInfo && (
         <div className="pt-3 border-t border-purple-500/20">
           <h4 className="text-xs font-semibold text-purple-200/80 mb-2 uppercase tracking-wide">
-            Visual Indicators
+            Визуальные индикаторы
           </h4>
           <div className="space-y-2 text-xs text-purple-200/80">
             <div className="flex items-start gap-2">
@@ -107,18 +107,18 @@ export default function GraphLegend({
                 <span className="text-[8px] font-bold text-white">2+</span>
               </div>
               <span>
-                Badge on node indicates multiple themes from filter selection
+                Значок на узле показывает несколько тем из выбранных фильтров
               </span>
             </div>
             <div className="flex items-start gap-2">
               <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex-shrink-0 mt-0.5" />
               <span>
-                Blended colors indicate books with overlapping filtered themes
+                Смешанные цвета указывают на книги с пересекающимися темами
               </span>
             </div>
             <div className="flex items-start gap-2">
               <div className="w-4 h-4 rounded-full bg-purple-500/30 flex-shrink-0 mt-0.5" />
-              <span>Dimmed nodes are not in the current filter selection</span>
+              <span>Затемнённые узлы не входят в текущий фильтр</span>
             </div>
           </div>
         </div>

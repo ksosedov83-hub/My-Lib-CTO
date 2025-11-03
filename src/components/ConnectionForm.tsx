@@ -17,26 +17,26 @@ interface ConnectionFormProps {
 }
 
 const CONNECTION_TYPES: { value: ConnectionType; label: string; description: string }[] = [
-  { value: "influences", label: "Influences", description: "One work influences another" },
-  { value: "references", label: "References", description: "Direct references or citations" },
-  { value: "contradicts", label: "Contradicts", description: "Opposing or conflicting ideas" },
-  { value: "expands", label: "Expands", description: "Builds upon or expands ideas" },
+  { value: "influences", label: "Влияние", description: "Одна работа влияет на другую" },
+  { value: "references", label: "Ссылка", description: "Прямые ссылки или цитирования" },
+  { value: "contradicts", label: "Противоречие", description: "Противоположные или конфликтующие идеи" },
+  { value: "expands", label: "Расширение", description: "Развивает или расширяет идеи" },
   {
     value: "similar-theme",
-    label: "Similar Theme",
-    description: "Shares common themes or topics",
+    label: "Схожая тема",
+    description: "Общие темы или темы",
   },
   {
     value: "chronological",
-    label: "Chronological",
-    description: "Historical or temporal relationship",
+    label: "Хронология",
+    description: "Историческая или временная связь",
   },
   {
     value: "author-connection",
-    label: "Author Connection",
-    description: "Same author or related authors",
+    label: "Связь авторов",
+    description: "Одинаковый автор или связанные авторы",
   },
-  { value: "custom", label: "Custom", description: "Custom relationship type" },
+  { value: "custom", label: "Особая", description: "Особый тип связи" },
 ];
 
 export default function ConnectionForm({
@@ -92,17 +92,17 @@ export default function ConnectionForm({
     setError("");
 
     if (!sourceId || !targetId) {
-      setError("Please select both source and target books");
+      setError("Пожалуйста, выберите обе книги - источник и цель");
       return;
     }
 
     if (sourceId === targetId) {
-      setError("Source and target books must be different");
+      setError("Книга-источник и книга-цель должны быть разными");
       return;
     }
 
     if (checkDuplicate(sourceId, targetId)) {
-      setError("A connection between these books already exists");
+      setError("Связь между этими книгами уже существует");
       return;
     }
 
@@ -145,7 +145,7 @@ export default function ConnectionForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label htmlFor="sourceBook" className="block text-sm font-medium text-purple-200 mb-2">
-            Source Book
+            Книга-источник
           </label>
           <select
             id="sourceBook"
@@ -154,7 +154,7 @@ export default function ConnectionForm({
             className="w-full px-4 py-2 rounded-lg bg-purple-950/50 border border-purple-500/30 text-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all"
             required
           >
-            <option value="">Select a book...</option>
+            <option value="">Выберите книгу...</option>
             {availableBooks.map((book) => (
               <option key={book.id} value={book.id}>
                 {book.title} - {book.author}
@@ -165,7 +165,7 @@ export default function ConnectionForm({
 
         <div>
           <label htmlFor="targetBook" className="block text-sm font-medium text-purple-200 mb-2">
-            Target Book
+            Книга-цель
           </label>
           <select
             id="targetBook"
@@ -174,7 +174,7 @@ export default function ConnectionForm({
             className="w-full px-4 py-2 rounded-lg bg-purple-950/50 border border-purple-500/30 text-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all"
             required
           >
-            <option value="">Select a book...</option>
+            <option value="">Выберите книгу...</option>
             {availableBooks.map((book) => (
               <option key={book.id} value={book.id}>
                 {book.title} - {book.author}
@@ -186,7 +186,7 @@ export default function ConnectionForm({
 
       <div>
         <label htmlFor="type" className="block text-sm font-medium text-purple-200 mb-2">
-          Connection Type
+          Тип связи
         </label>
         <select
           id="type"
@@ -205,10 +205,10 @@ export default function ConnectionForm({
 
       <div>
         <label htmlFor="strength" className="block text-sm font-medium text-purple-200 mb-2">
-          Connection Strength: {strength.toFixed(2)}
+          Сила связи: {strength.toFixed(2)}
         </label>
         <div className="flex items-center gap-4">
-          <span className="text-xs text-purple-300">Weak</span>
+          <span className="text-xs text-purple-300">Слабая</span>
           <input
             id="strength"
             type="range"
@@ -219,49 +219,49 @@ export default function ConnectionForm({
             onChange={(e) => setStrength(parseFloat(e.target.value))}
             className="flex-1 h-2 bg-purple-950/50 rounded-lg appearance-none cursor-pointer slider-purple"
           />
-          <span className="text-xs text-purple-300">Strong</span>
+          <span className="text-xs text-purple-300">Сильная</span>
         </div>
         <p className="text-xs text-purple-300/70 mt-1">
-          Affects the visual thickness of the connection in the graph
+          Влияет на визуальную толщину связи на графе
         </p>
       </div>
 
       <div>
         <label htmlFor="label" className="block text-sm font-medium text-purple-200 mb-2">
-          Label (Optional)
+          Метка (необязательно)
         </label>
         <Input
           id="label"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="e.g., Evolution of ideas, Historical influence..."
+          placeholder="напр., Эволюция идей, Историческое влияние..."
           maxLength={100}
         />
         <p className="text-xs text-purple-300/70 mt-1">
-          A short label shown on the graph when hovering over the connection
+          Короткая метка, показываемая на графе при наведении на связь
         </p>
       </div>
 
       <div>
         <label htmlFor="notes" className="block text-sm font-medium text-purple-200 mb-2">
-          Notes (Optional)
+          Заметки (необязательно)
         </label>
         <Textarea
           id="notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Add any additional notes about this connection..."
+          placeholder="Добавьте любые дополнительные заметки об этой связи..."
           rows={4}
         />
       </div>
 
       <div className="flex gap-3 pt-4">
         <Button type="submit" className="flex-1">
-          {connection ? "Update Connection" : "Create Connection"}
+          {connection ? "Обновить связь" : "Создать связь"}
         </Button>
         {onCancel && (
           <Button type="button" variant="secondary" onClick={onCancel} className="flex-1">
-            Cancel
+            Отмена
           </Button>
         )}
       </div>

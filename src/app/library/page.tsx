@@ -78,15 +78,15 @@ export default function LibraryPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-              Library Management
+              Управление библиотекой
             </h1>
             <p className="text-purple-200/70 mt-1">
-              Manage your collection of {books.length} book{books.length !== 1 ? "s" : ""}
+              Управляйте вашей коллекцией из {books.length} книг{books.length % 10 === 1 && books.length % 100 !== 11 ? "и" : ""}
             </p>
           </div>
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4" />
-            Add Book
+            Добавить книгу
           </Button>
         </div>
 
@@ -95,7 +95,7 @@ export default function LibraryPage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-400 pointer-events-none z-10" />
             <Input
               id="search"
-              placeholder="Search by title, author, or description..."
+              placeholder="Поиск по названию, автору или описанию..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-11"
@@ -108,7 +108,7 @@ export default function LibraryPage() {
               onChange={(e) => setSelectedTheme(e.target.value || null)}
               className="px-4 py-2 rounded-lg bg-purple-950/50 border border-purple-500/30 text-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all"
             >
-              <option value="">All Themes</option>
+              <option value="">Все темы</option>
               {themes.map((theme) => (
                 <option key={theme.id} value={theme.name}>
                   {theme.name}
@@ -126,17 +126,17 @@ export default function LibraryPage() {
               </div>
             </div>
             <h3 className="text-xl font-semibold text-purple-100 mb-2">
-              {searchQuery || selectedTheme ? "No books found" : "No books yet"}
+              {searchQuery || selectedTheme ? "Книги не найдены" : "Пока нет книг"}
             </h3>
             <p className="text-purple-200/70 mb-6">
               {searchQuery || selectedTheme
-                ? "Try adjusting your search or filter criteria"
-                : "Start building your library by adding your first book"}
+                ? "Попробуйте изменить параметры поиска или фильтра"
+                : "Начните строить вашу библиотеку, добавив первую книгу"}
             </p>
             {!searchQuery && !selectedTheme && (
               <Button onClick={() => setShowAddDialog(true)}>
                 <Plus className="h-4 w-4" />
-                Add Your First Book
+                Добавить первую книгу
               </Button>
             )}
           </div>
@@ -180,7 +180,7 @@ export default function LibraryPage() {
                   <div className="mb-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Tag className="h-3 w-3 text-purple-300" />
-                      <span className="text-xs font-medium text-purple-300">Themes</span>
+                      <span className="text-xs font-medium text-purple-300">Темы</span>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {book.themes.slice(0, 3).map((themeName) => (
@@ -212,7 +212,7 @@ export default function LibraryPage() {
                     className="flex-1"
                   >
                     <Edit2 className="h-3 w-3" />
-                    Edit
+                    Редактировать
                   </Button>
                   <Button
                     variant="secondary"
@@ -221,7 +221,7 @@ export default function LibraryPage() {
                     className="flex-1"
                   >
                     <Link2 className="h-3 w-3" />
-                    Connections
+                    Связи
                   </Button>
                   <Button
                     variant="danger"
@@ -230,13 +230,13 @@ export default function LibraryPage() {
                     className="flex-1"
                   >
                     <Trash2 className="h-3 w-3" />
-                    Delete
+                    Удалить
                   </Button>
                 </div>
 
                 <div className="mt-3 pt-3 border-t border-purple-500/20">
                   <p className="text-xs text-purple-300/50">
-                    Updated {new Date(book.updatedAt).toLocaleDateString()}
+                    Обновлено {new Date(book.updatedAt).toLocaleDateString("ru-RU")}
                   </p>
                 </div>
               </div>
@@ -248,7 +248,7 @@ export default function LibraryPage() {
       <Dialog
         open={showAddDialog}
         onClose={() => setShowAddDialog(false)}
-        title="Add New Book"
+        title="Добавить новую книгу"
         maxWidth="lg"
       >
         <BookForm onSuccess={handleAddSuccess} onCancel={() => setShowAddDialog(false)} />
@@ -257,7 +257,7 @@ export default function LibraryPage() {
       <Dialog
         open={!!editingBook}
         onClose={() => setEditingBook(null)}
-        title="Edit Book"
+        title="Редактировать книгу"
         maxWidth="lg"
       >
         {editingBook && (
@@ -291,14 +291,14 @@ export default function LibraryPage() {
                   className="text-2xl font-bold text-purple-100 flex items-center gap-2"
                 >
                   <Link2 className="h-6 w-6" />
-                  Connections
+                  Связи
                 </h2>
                 <p className="text-sm text-purple-300 mt-1">{viewingBookConnections.title}</p>
               </div>
               <button
                 onClick={() => setViewingBookConnections(null)}
                 className="p-2 rounded-lg hover:bg-purple-500/20 transition-colors text-purple-200 hover:text-purple-100"
-                aria-label="Close connections"
+                aria-label="Закрыть связи"
               >
                 <X className="h-5 w-5" />
               </button>

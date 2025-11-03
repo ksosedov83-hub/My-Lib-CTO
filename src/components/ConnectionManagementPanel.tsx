@@ -15,14 +15,14 @@ interface ConnectionManagementPanelProps {
 }
 
 const CONNECTION_TYPE_LABELS: Record<string, string> = {
-  influences: "Influences",
-  references: "References",
-  contradicts: "Contradicts",
-  expands: "Expands",
-  "similar-theme": "Similar Theme",
-  chronological: "Chronological",
-  "author-connection": "Author Connection",
-  custom: "Custom",
+  influences: "Влияние",
+  references: "Ссылка",
+  contradicts: "Противоречие",
+  expands: "Расширение",
+  "similar-theme": "Схожая тема",
+  chronological: "Хронология",
+  "author-connection": "Связь авторов",
+  custom: "Особая",
 };
 
 const CONNECTION_COLORS: Record<string, string> = {
@@ -99,16 +99,21 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
         <div>
           <h2 className="text-2xl font-bold text-purple-100 flex items-center gap-2">
             <Link2 className="h-6 w-6" />
-            {bookId ? "Book Connections" : "Manage Connections"}
+            {bookId ? "Связи книги" : "Управление связями"}
           </h2>
           <p className="text-purple-200/70 mt-1">
-            {filteredConnections.length} connection{filteredConnections.length !== 1 ? "s" : ""}
-            {bookId && " for this book"}
+            {filteredConnections.length} связ
+            {filteredConnections.length === 1
+              ? "ь"
+              : filteredConnections.length > 1 && filteredConnections.length < 5
+                ? "и"
+                : "ей"}
+            {bookId && " для этой книги"}
           </p>
         </div>
         <Button onClick={() => setShowAddDialog(true)}>
           <Plus className="h-4 w-4" />
-          Add Connection
+          Добавить связь
         </Button>
       </div>
 
@@ -117,7 +122,7 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-400 pointer-events-none z-10" />
           <Input
             id="connection-search"
-            placeholder="Search connections..."
+            placeholder="Поиск связей..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-11"
@@ -131,7 +136,7 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
               onChange={(e) => setTypeFilter(e.target.value)}
               className="px-4 py-2 rounded-lg bg-purple-950/50 border border-purple-500/30 text-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all"
             >
-              <option value="">All Types</option>
+              <option value="">Все типы</option>
               {uniqueTypes.map((type) => (
                 <option key={type} value={type}>
                   {CONNECTION_TYPE_LABELS[type] || type}
@@ -150,17 +155,17 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
             </div>
           </div>
           <h3 className="text-xl font-semibold text-purple-100 mb-2">
-            {searchQuery || typeFilter ? "No connections found" : "No connections yet"}
+            {searchQuery || typeFilter ? "Связи не найдены" : "Пока нет связей"}
           </h3>
           <p className="text-purple-200/70 mb-6">
             {searchQuery || typeFilter
-              ? "Try adjusting your search or filter criteria"
-              : "Start building your knowledge graph by creating connections between books"}
+              ? "Попробуйте изменить параметры поиска или фильтра"
+              : "Начните строить граф знаний, создав связи между книгами"}
           </p>
           {!searchQuery && !typeFilter && (
             <Button onClick={() => setShowAddDialog(true)}>
               <Plus className="h-4 w-4" />
-              Create Your First Connection
+              Создать первую связь
             </Button>
           )}
         </div>
@@ -191,7 +196,7 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
                         {CONNECTION_TYPE_LABELS[connection.type] || connection.type}
                       </div>
                       <div className="flex items-center gap-1 text-xs text-purple-300">
-                        <span>Strength:</span>
+                        <span>Сила:</span>
                         <span className="font-semibold">{connection.strength.toFixed(1)}</span>
                       </div>
                     </div>
@@ -223,7 +228,7 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
                     )}
 
                     <div className="mt-3 text-xs text-purple-300/50">
-                      Updated {new Date(connection.updatedAt).toLocaleDateString()}
+                      Обновлено {new Date(connection.updatedAt).toLocaleDateString("ru-RU")}
                     </div>
                   </div>
 
@@ -232,7 +237,7 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
                       variant="secondary"
                       size="sm"
                       onClick={() => setEditingConnection(connection)}
-                      title="Edit connection"
+                      title="Редактировать связь"
                     >
                       <Edit2 className="h-3 w-3" />
                     </Button>
@@ -240,7 +245,7 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
                       variant="danger"
                       size="sm"
                       onClick={() => setDeletingConnection(connection)}
-                      title="Delete connection"
+                      title="Удалить связь"
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -255,7 +260,7 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
       <Dialog
         open={showAddDialog}
         onClose={() => setShowAddDialog(false)}
-        title="Add New Connection"
+        title="Добавить новую связь"
         maxWidth="lg"
       >
         <ConnectionForm
@@ -268,7 +273,7 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
       <Dialog
         open={!!editingConnection}
         onClose={() => setEditingConnection(null)}
-        title="Edit Connection"
+        title="Редактировать связь"
         maxWidth="lg"
       >
         {editingConnection && (
@@ -283,24 +288,24 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
       <Dialog
         open={!!deletingConnection}
         onClose={() => setDeletingConnection(null)}
-        title="Delete Connection"
+        title="Удалить связь"
         maxWidth="sm"
       >
         {deletingConnection && (
           <div className="space-y-4">
             <p className="text-purple-200">
-              Are you sure you want to delete this connection? This action cannot be undone.
+              Вы уверены, что хотите удалить эту связь? Это действие нельзя отменить.
             </p>
             <div className="flex gap-3">
               <Button variant="danger" onClick={handleDeleteConfirm} className="flex-1">
-                Delete
+                Удалить
               </Button>
               <Button
                 variant="secondary"
                 onClick={() => setDeletingConnection(null)}
                 className="flex-1"
               >
-                Cancel
+                Отмена
               </Button>
             </div>
           </div>
