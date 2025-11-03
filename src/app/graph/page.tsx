@@ -4,14 +4,21 @@ import { useState, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import LibraryGraph from "@/components/LibraryGraph";
 import ConnectionManagementPanel from "@/components/ConnectionManagementPanel";
+import ThemeFilterPanel from "@/components/ThemeFilterPanel";
+import GraphLegend from "@/components/GraphLegend";
+import { useAppStore } from "@/stores/useAppStore";
 import { Book } from "@/types";
-import { X, BookOpen, Calendar, Tag, Link2 } from "lucide-react";
+import { X, BookOpen, Calendar, Tag, Link2, Filter, Eye } from "lucide-react";
 import Button from "@/components/ui/Button";
 
 export default function GraphPage() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [hoveredBook, setHoveredBook] = useState<Book | null>(null);
   const [showConnectionsPanel, setShowConnectionsPanel] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(true);
+  const [showLegend, setShowLegend] = useState(true);
+
+  const selectedThemes = useAppStore((state) => state.selectedThemes);
 
   const handleNodeClick = useCallback((book: Book) => {
     setSelectedBook(book);
@@ -28,7 +35,7 @@ export default function GraphPage() {
   return (
     <AppShell>
       <div className="h-[calc(100vh-8rem)] flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
               Library Knowledge Graph
@@ -37,25 +44,59 @@ export default function GraphPage() {
               Explore connections between books in your cosmic library
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => setShowFilterPanel(!showFilterPanel)}
+              variant={showFilterPanel ? "primary" : "secondary"}
+            >
+              <Filter className="h-4 w-4" />
+              {showFilterPanel ? "Hide" : "Show"} Filters
+            </Button>
+            <Button
+              onClick={() => setShowLegend(!showLegend)}
+              variant={showLegend ? "primary" : "secondary"}
+            >
+              <Eye className="h-4 w-4" />
+              {showLegend ? "Hide" : "Show"} Legend
+            </Button>
             <Button onClick={() => setShowConnectionsPanel(true)}>
               <Link2 className="h-4 w-4" />
-              Manage Connections
+              Connections
             </Button>
-            <div className="text-sm text-purple-300/70 bg-purple-900/20 backdrop-blur-sm border border-purple-500/20 rounded-lg px-3 py-2">
-              <span className="font-semibold">Tip:</span> Drag nodes, zoom with scroll, hover for
-              details
-            </div>
           </div>
         </div>
+
+        {showFilterPanel && (
+          <ThemeFilterPanel className="animate-in fade-in slide-in-from-top-2 duration-300" />
+        )}
 
         <div className="flex-1 relative rounded-xl overflow-hidden border border-purple-500/20 bg-black/20 backdrop-blur-sm">
           <LibraryGraph
             onNodeClick={handleNodeClick}
             onNodeHover={handleNodeHover}
             selectedBookId={selectedBook?.id}
+            selectedThemes={selectedThemes}
             className="w-full h-full"
           />
+
+          {showLegend && (
+            <div className="absolute top-4 right-4 max-w-xs hidden lg:block animate-in fade-in slide-in-from-right-2 duration-300">
+              <GraphLegend />
+            </div>
+          )}
+
+          {showLegend && (
+            <div className="absolute bottom-20 left-4 right-4 lg:hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <GraphLegend />
+            </div>
+          )}
+
+          <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-auto md:bottom-auto md:top-4 md:left-4 max-w-xs">
+            <div className="text-sm text-purple-300/70 bg-purple-900/80 backdrop-blur-md border border-purple-500/30 rounded-lg px-3 py-2 shadow-lg">
+              <span className="font-semibold">Tip:</span> Drag nodes, zoom with scroll, hover for
+              details
+            </div>
+          </div>
         </div>
 
         {selectedBook && (
@@ -151,25 +192,6 @@ export default function GraphPage() {
             </div>
           </div>
         )}
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-          <div className="flex items-center gap-2 bg-purple-900/20 backdrop-blur-sm border border-purple-500/20 rounded-lg px-3 py-2">
-            <div className="w-3 h-3 rounded-full bg-[#7c3aed]"></div>
-            <span className="text-purple-200">Influences</span>
-          </div>
-          <div className="flex items-center gap-2 bg-purple-900/20 backdrop-blur-sm border border-purple-500/20 rounded-lg px-3 py-2">
-            <div className="w-3 h-3 rounded-full bg-[#3b82f6]"></div>
-            <span className="text-purple-200">References</span>
-          </div>
-          <div className="flex items-center gap-2 bg-purple-900/20 backdrop-blur-sm border border-purple-500/20 rounded-lg px-3 py-2">
-            <div className="w-3 h-3 rounded-full bg-[#ec4899]"></div>
-            <span className="text-purple-200">Contradicts</span>
-          </div>
-          <div className="flex items-center gap-2 bg-purple-900/20 backdrop-blur-sm border border-purple-500/20 rounded-lg px-3 py-2">
-            <div className="w-3 h-3 rounded-full bg-[#06b6d4]"></div>
-            <span className="text-purple-200">Expands</span>
-          </div>
-        </div>
       </div>
 
       {showConnectionsPanel && (

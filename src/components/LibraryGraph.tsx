@@ -36,6 +36,7 @@ interface LibraryGraphProps {
   onNodeHover?: (book: Book | null) => void;
   selectedBookId?: string | null;
   highlightedBookIds?: string[];
+  selectedThemes?: string[];
   className?: string;
 }
 
@@ -55,6 +56,7 @@ export default function LibraryGraph({
   onNodeHover,
   selectedBookId,
   highlightedBookIds = [],
+  selectedThemes = [],
   className = "",
 }: LibraryGraphProps) {
   const books = useLibraryStore((state) => state.books);
@@ -67,14 +69,48 @@ export default function LibraryGraph({
   const [highlightNodes, setHighlightNodes] = useState<Set<string>>(new Set());
   const [highlightLinks, setHighlightLinks] = useState<Set<string>>(new Set());
 
+  const bookMatchesFilter = useCallback(
+    (book: Book): boolean => {
+      if (selectedThemes.length === 0) return true;
+      return book.themes.some((theme) => selectedThemes.includes(theme));
+    },
+    [selectedThemes]
+  );
+
+  const getFilteredThemeCount = useCallback(
+    (book: Book): number => {
+      if (selectedThemes.length === 0) return 0;
+      return book.themes.filter((theme) => selectedThemes.includes(theme)).length;
+    },
+    [selectedThemes]
+  );
+
   const getBookColor = useCallback(
     (book: Book): string => {
       if (book.themes.length === 0) return "#6b7280";
+
+      if (selectedThemes.length > 0) {
+        const matchingThemes = book.themes.filter((themeName) =>
+          selectedThemes.includes(themeName)
+        );
+        if (matchingThemes.length > 0) {
+          const themeColors = matchingThemes
+            .map((themeName) => themes.find((t) => t.name === themeName)?.color)
+            .filter((color): color is string => color !== undefined);
+
+          if (themeColors.length > 1) {
+            return themeColors[0];
+          } else if (themeColors.length === 1) {
+            return themeColors[0];
+          }
+        }
+      }
+
       const primaryThemeName = book.themes[0];
       const theme = themes.find((t) => t.name === primaryThemeName);
       return theme?.color || "#7c3aed";
     },
-    [themes]
+    [themes, selectedThemes]
   );
 
   const graphData = useMemo(() => {
@@ -109,13 +145,14 @@ export default function LibraryGraph({
   }, [books, connections, getBookColor]);
 
   const handleNodeHover = useCallback(
-    (node: GraphNode | null) => {
-      setHoveredNode(node);
+    (node: any) => {
+      const graphNode = node as GraphNode | null;
+      setHoveredNode(graphNode);
       if (onNodeHover) {
-        onNodeHover(node?.book || null);
+        onNodeHover(graphNode?.book || null);
       }
 
-      if (!node) {
+      if (!graphNode) {
         setHighlightNodes(new Set());
         setHighlightLinks(new Set());
         return;
@@ -125,19 +162,19 @@ export default function LibraryGraph({
       const linkIds = new Set<string>();
 
       graphData.links.forEach((link) => {
-        if (link.source === node.id || (link.source as any).id === node.id) {
+        if (link.source === graphNode.id || (link.source as any).id === graphNode.id) {
           const targetId = typeof link.target === "string" ? link.target : (link.target as any).id;
           neighbors.add(targetId);
           linkIds.add(`${link.source}-${link.target}`);
         }
-        if (link.target === node.id || (link.target as any).id === node.id) {
+        if (link.target === graphNode.id || (link.target as any).id === graphNode.id) {
           const sourceId = typeof link.source === "string" ? link.source : (link.source as any).id;
           neighbors.add(sourceId);
           linkIds.add(`${link.source}-${link.target}`);
         }
       });
 
-      neighbors.add(node.id);
+      neighbors.add(graphNode.id);
       setHighlightNodes(neighbors);
       setHighlightLinks(linkIds);
     },
@@ -145,9 +182,10 @@ export default function LibraryGraph({
   );
 
   const handleNodeClick = useCallback(
-    (node: GraphNode) => {
+    (node: any) => {
+      const graphNode = node as GraphNode;
       if (onNodeClick) {
-        onNodeClick(node.book);
+        onNodeClick(graphNode.book);
       }
     },
     [onNodeClick]
@@ -165,6 +203,10 @@ export default function LibraryGraph({
 
   const nodeCanvasObject = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+      const book = node.book as Book;
+      const matchesFilter = bookMatchesFilter(book);
+      const filteredThemeCount = getFilteredThemeCount(book);
+
       const isHighlighted =
         highlightNodes.size === 0 ||
         highlightNodes.has(node.id) ||
@@ -173,7 +215,11 @@ export default function LibraryGraph({
       const isHovered = hoveredNode?.id === node.id;
 
       const size = node.val || 5;
-      const opacity = isHighlighted ? 1 : 0.3;
+      let opacity = isHighlighted ? 1 : 0.3;
+
+      if (selectedThemes.length > 0) {
+        opacity = matchesFilter ? 1 : 0.2;
+      }
 
       if (isSelected || isHovered) {
         ctx.beginPath();
@@ -198,6 +244,27 @@ export default function LibraryGraph({
       ctx.lineWidth = isSelected || isHovered ? 2 : 1;
       ctx.stroke();
 
+      if (filteredThemeCount > 1 && matchesFilter) {
+        const badgeSize = 10;
+        const badgeX = node.x + size - badgeSize / 2;
+        const badgeY = node.y - size + badgeSize / 2;
+
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, badgeSize / 2, 0, 2 * Math.PI);
+        ctx.fillStyle = "#7c3aed";
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = "bold 8px Inter, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(filteredThemeCount.toString(), badgeX, badgeY);
+      }
+
       if (globalScale > 1.5 || isHovered || isSelected) {
         const label = node.name;
         const fontSize = Math.max(10, 12 / globalScale);
@@ -211,11 +278,19 @@ export default function LibraryGraph({
         const textWidth = ctx.measureText(label).width;
         ctx.fillRect(node.x - textWidth / 2 - 4, textY - 2, textWidth + 8, fontSize + 4);
 
-        ctx.fillStyle = isHighlighted ? "#e0e7ff" : "#a5b4fc";
+        ctx.fillStyle = isHighlighted && matchesFilter ? "#e0e7ff" : "#a5b4fc";
         ctx.fillText(label, node.x, textY);
       }
     },
-    [highlightNodes, highlightedBookIds, selectedBookId, hoveredNode]
+    [
+      highlightNodes,
+      highlightedBookIds,
+      selectedBookId,
+      hoveredNode,
+      selectedThemes,
+      bookMatchesFilter,
+      getFilteredThemeCount,
+    ]
   );
 
   const linkCanvasObject = useCallback(
@@ -223,11 +298,23 @@ export default function LibraryGraph({
       const linkId = `${link.source.id}-${link.target.id}`;
       const isHighlighted = highlightLinks.size === 0 || highlightLinks.has(linkId);
 
+      const sourceBook = link.source.book as Book;
+      const targetBook = link.target.book as Book;
+      const sourceMatches = bookMatchesFilter(sourceBook);
+      const targetMatches = bookMatchesFilter(targetBook);
+      const bothMatch = sourceMatches && targetMatches;
+
       const start = link.source;
       const end = link.target;
 
       ctx.save();
-      ctx.globalAlpha = isHighlighted ? 0.6 : 0.15;
+      let linkAlpha = isHighlighted ? 0.6 : 0.15;
+
+      if (selectedThemes.length > 0) {
+        linkAlpha = bothMatch ? 0.6 : 0.1;
+      }
+
+      ctx.globalAlpha = linkAlpha;
       ctx.strokeStyle = link.color;
       ctx.lineWidth = link.width || 1;
 
@@ -254,7 +341,7 @@ export default function LibraryGraph({
 
       ctx.restore();
     },
-    [highlightLinks]
+    [highlightLinks, selectedThemes, bookMatchesFilter]
   );
 
   const nodeLabel = useCallback((node: any) => {
