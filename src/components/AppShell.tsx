@@ -51,6 +51,12 @@ export default function AppShell({ children }: AppShellProps) {
                   Home
                 </a>
                 <a
+                  href="/library"
+                  className="block px-4 py-2 rounded-lg text-purple-300 hover:bg-purple-500/10 transition-colors"
+                >
+                  Library
+                </a>
+                <a
                   href="/graph"
                   className="block px-4 py-2 rounded-lg bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 transition-colors"
                 >
