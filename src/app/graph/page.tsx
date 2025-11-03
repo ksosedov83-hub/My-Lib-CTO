@@ -3,12 +3,15 @@
 import { useState, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import LibraryGraph from "@/components/LibraryGraph";
+import ConnectionManagementPanel from "@/components/ConnectionManagementPanel";
 import { Book } from "@/types";
-import { X, BookOpen, Calendar, Tag } from "lucide-react";
+import { X, BookOpen, Calendar, Tag, Link2 } from "lucide-react";
+import Button from "@/components/ui/Button";
 
 export default function GraphPage() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [hoveredBook, setHoveredBook] = useState<Book | null>(null);
+  const [showConnectionsPanel, setShowConnectionsPanel] = useState(false);
 
   const handleNodeClick = useCallback((book: Book) => {
     setSelectedBook(book);
@@ -35,6 +38,10 @@ export default function GraphPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button onClick={() => setShowConnectionsPanel(true)}>
+              <Link2 className="h-4 w-4" />
+              Manage Connections
+            </Button>
             <div className="text-sm text-purple-300/70 bg-purple-900/20 backdrop-blur-sm border border-purple-500/20 rounded-lg px-3 py-2">
               <span className="font-semibold">Tip:</span> Drag nodes, zoom with scroll, hover for
               details
@@ -129,6 +136,10 @@ export default function GraphPage() {
                 )}
 
                 <div className="pt-4 border-t border-purple-500/30">
+                  <ConnectionManagementPanel bookId={selectedBook.id} />
+                </div>
+
+                <div className="pt-4 border-t border-purple-500/30">
                   <div className="text-xs text-purple-300/60 space-y-1">
                     <p>Created: {new Date(selectedBook.createdAt).toLocaleDateString()}</p>
                     <p>
@@ -160,6 +171,37 @@ export default function GraphPage() {
           </div>
         </div>
       </div>
+
+      {showConnectionsPanel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div
+            className="relative max-w-5xl w-full bg-gradient-to-br from-purple-900/90 to-blue-900/90 backdrop-blur-xl border border-purple-500/30 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="connections-panel-title"
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b border-purple-500/30 bg-gradient-to-r from-purple-900/95 to-blue-900/95 backdrop-blur-xl">
+              <h2
+                id="connections-panel-title"
+                className="text-2xl font-bold text-purple-100 flex items-center gap-2"
+              >
+                <Link2 className="h-6 w-6" />
+                Manage All Connections
+              </h2>
+              <button
+                onClick={() => setShowConnectionsPanel(false)}
+                className="p-2 rounded-lg hover:bg-purple-500/20 transition-colors text-purple-200 hover:text-purple-100"
+                aria-label="Close connections panel"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <ConnectionManagementPanel />
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
