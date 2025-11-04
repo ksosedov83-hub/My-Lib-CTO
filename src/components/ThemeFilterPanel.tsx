@@ -40,23 +40,23 @@ export default function ThemeFilterPanel({
 
   return (
     <div
-      className={`bg-gradient-to-br from-purple-900/40 to-blue-900/30 backdrop-blur-sm border border-purple-500/20 rounded-lg p-4 shadow-lg ${className}`}
+      className={`bg-gradient-to-br from-purple-900/40 to-blue-900/30 backdrop-blur-sm border border-purple-500/20 rounded-lg p-3 shadow-lg ${className}`}
       role="region"
       aria-label="Фильтры по темам"
     >
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-purple-100 flex items-center gap-2">
-          <Filter className="h-4 w-4" />
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-purple-100 flex items-center gap-2">
+          <Filter className="h-3 w-3" />
           Фильтр по темам
         </h3>
         {hasSelection && (
-          <span className="text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-200">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-200">
             {selectedThemes.length} выбрано
           </span>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex flex-wrap gap-1.5 mb-2">
         {themes.map((theme) => {
           const isSelected = selectedThemes.includes(theme.name);
           const bookCount = getBookCountForTheme(theme.name);
@@ -65,7 +65,7 @@ export default function ThemeFilterPanel({
               key={theme.id}
               onClick={() => toggleThemeFilter(theme.name)}
               className={`
-                group relative flex items-center gap-2 px-3 py-2 rounded-lg border transition-all
+                group relative flex items-center gap-1.5 px-2 py-1 rounded border transition-all text-xs
                 ${
                   isSelected
                     ? "border-purple-400/60 bg-purple-500/30 shadow-md"
@@ -77,13 +77,13 @@ export default function ThemeFilterPanel({
               aria-label={`${isSelected ? "Убрать" : "Добавить"} фильтр ${theme.name} (${bookCount} книг)`}
             >
               <div
-                className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                className={`w-3 h-3 rounded border flex items-center justify-center transition-colors ${
                   isSelected ? "border-purple-300 bg-purple-400" : "border-purple-400/40"
                 }`}
               >
                 {isSelected && (
                   <svg
-                    className="w-3 h-3 text-purple-950"
+                    className="w-2 h-2 text-purple-950"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="3"
@@ -94,19 +94,19 @@ export default function ThemeFilterPanel({
                 )}
               </div>
               <div
-                className="w-3 h-3 rounded-full border border-white/30"
+                className="w-2.5 h-2.5 rounded-full border border-white/30"
                 style={{ backgroundColor: theme.color }}
                 aria-hidden="true"
               />
               <span
-                className={`text-sm font-medium ${
+                className={`font-medium ${
                   isSelected ? "text-purple-100" : "text-purple-200"
                 }`}
               >
                 {theme.name}
               </span>
               <span
-                className={`text-xs px-1.5 py-0.5 rounded-full ${
+                className={`px-1 py-0.5 rounded-full ${
                   isSelected
                     ? "bg-purple-400/40 text-purple-100"
                     : "bg-purple-500/20 text-purple-300"
@@ -125,7 +125,7 @@ export default function ThemeFilterPanel({
         </p>
       )}
 
-      <div className="flex flex-wrap gap-2 pt-3 border-t border-purple-500/20">
+      <div className="flex flex-wrap gap-1.5 pt-2 border-t border-purple-500/20">
         <Button
           onClick={handleSelectAll}
           disabled={isAllSelected || themes.length === 0}
@@ -151,7 +151,7 @@ export default function ThemeFilterPanel({
 
       {hasSelection && (
         <div
-          className="mt-3 pt-3 border-t border-purple-500/20 text-xs text-purple-300/80"
+          className="mt-2 pt-2 border-t border-purple-500/20 text-xs text-purple-300/80"
           role="status"
           aria-live="polite"
         >

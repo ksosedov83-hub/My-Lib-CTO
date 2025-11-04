@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import LibraryGraph from "@/components/LibraryGraph";
 import ConnectionManagementPanel from "@/components/ConnectionManagementPanel";
@@ -19,6 +19,23 @@ export default function GraphPage() {
 
   const selectedThemes = useAppStore((state) => state.selectedThemes);
 
+  // Load panel states from localStorage
+  useEffect(() => {
+    const savedFilterPanel = localStorage.getItem("showFilterPanel");
+    const savedLegend = localStorage.getItem("showLegend");
+    if (savedFilterPanel !== null) setShowFilterPanel(savedFilterPanel === "true");
+    if (savedLegend !== null) setShowLegend(savedLegend === "true");
+  }, []);
+
+  // Save panel states to localStorage
+  useEffect(() => {
+    localStorage.setItem("showFilterPanel", String(showFilterPanel));
+  }, [showFilterPanel]);
+
+  useEffect(() => {
+    localStorage.setItem("showLegend", String(showLegend));
+  }, [showLegend]);
+
   const handleNodeClick = useCallback((book: Book) => {
     setSelectedBook(book);
   }, []);
@@ -33,33 +50,32 @@ export default function GraphPage() {
 
   return (
     <AppShell>
-      <div className="h-[calc(100vh-8rem)] flex flex-col gap-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="h-[calc(100vh-8rem)] flex flex-col gap-2">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 py-1">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
               Граф знаний библиотеки
             </h1>
-            <p className="text-purple-200/70 mt-1">
-              Исследуйте связи между книгами в вашей космической библиотеке
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
               onClick={() => setShowFilterPanel(!showFilterPanel)}
               variant={showFilterPanel ? "primary" : "secondary"}
+              size="sm"
             >
-              <Filter className="h-4 w-4" />
+              <Filter className="h-3 w-3" />
               {showFilterPanel ? "Скрыть" : "Показать"} фильтры
             </Button>
             <Button
               onClick={() => setShowLegend(!showLegend)}
               variant={showLegend ? "primary" : "secondary"}
+              size="sm"
             >
-              <Eye className="h-4 w-4" />
+              <Eye className="h-3 w-3" />
               {showLegend ? "Скрыть" : "Показать"} легенду
             </Button>
-            <Button onClick={() => setShowConnectionsPanel(true)}>
-              <Link2 className="h-4 w-4" />
+            <Button onClick={() => setShowConnectionsPanel(true)} size="sm">
+              <Link2 className="h-3 w-3" />
               Связи
             </Button>
           </div>
@@ -79,21 +95,20 @@ export default function GraphPage() {
           />
 
           {showLegend && (
-            <div className="absolute top-20 right-4 max-w-xs hidden lg:block animate-in fade-in slide-in-from-right-2 duration-300">
+            <div className="absolute top-2 right-2 w-64 hidden lg:block animate-in fade-in slide-in-from-right-2 duration-300">
               <GraphLegend />
             </div>
           )}
 
           {showLegend && (
-            <div className="absolute bottom-20 left-4 right-4 lg:hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="absolute bottom-2 left-2 right-2 lg:hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
               <GraphLegend />
             </div>
           )}
 
-          <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-auto md:bottom-auto md:top-4 md:left-4 max-w-sm">
-            <div className="text-sm text-purple-300/70 bg-purple-900/80 backdrop-blur-md border border-purple-500/30 rounded-lg px-3 py-2 shadow-lg">
-              <span className="font-semibold">3D Controls:</span> Drag to rotate • Scroll to zoom •
-              Right-click to pan • Click nodes to focus • Press F for fullscreen
+          <div className="absolute bottom-2 right-2 md:bottom-auto md:top-16 md:left-2 max-w-[200px] md:max-w-xs hidden md:block">
+            <div className="text-xs text-purple-300/60 bg-purple-900/70 backdrop-blur-md border border-purple-500/20 rounded px-2 py-1">
+              <span className="font-medium">Управление:</span> F - полный экран • H - домой
             </div>
           </div>
         </div>
