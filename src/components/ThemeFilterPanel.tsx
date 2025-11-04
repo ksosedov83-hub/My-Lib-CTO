@@ -31,16 +31,16 @@ export default function ThemeFilterPanel({ className = "", compact = false }: Th
     <div
       className={`bg-gradient-to-br from-purple-900/40 to-blue-900/30 backdrop-blur-sm border border-purple-500/20 rounded-lg p-4 shadow-lg ${className}`}
       role="region"
-      aria-label="Theme filter controls"
+      aria-label="Фильтры по темам"
     >
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-purple-100 flex items-center gap-2">
           <Filter className="h-4 w-4" />
-          Filter by Theme
+          Фильтр по темам
         </h3>
         {hasSelection && (
           <span className="text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-200">
-            {selectedThemes.length} selected
+            {selectedThemes.length} выбрано
           </span>
         )}
       </div>
@@ -62,7 +62,7 @@ export default function ThemeFilterPanel({ className = "", compact = false }: Th
                 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-purple-950
               `}
               aria-pressed={isSelected}
-              aria-label={`${isSelected ? "Remove" : "Add"} ${theme.name} filter`}
+              aria-label={`${isSelected ? "Убрать" : "Добавить"} фильтр ${theme.name}`}
             >
               <div
                 className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
@@ -100,7 +100,7 @@ export default function ThemeFilterPanel({ className = "", compact = false }: Th
 
       {themes.length === 0 && (
         <p className="text-sm text-purple-300/60 text-center py-2">
-          No themes available. Add themes to your library to filter by them.
+          Нет доступных тем. Добавьте темы в библиотеку для фильтрации.
         </p>
       )}
 
@@ -110,20 +110,20 @@ export default function ThemeFilterPanel({ className = "", compact = false }: Th
           disabled={isAllSelected || themes.length === 0}
           variant="secondary"
           size="sm"
-          aria-label="Select all themes"
+          aria-label="Выбрать все темы"
         >
           <CheckSquare className="h-3 w-3" />
-          Select All
+          Выбрать всё
         </Button>
         <Button
           onClick={clearThemeFilters}
           disabled={!hasSelection}
           variant="secondary"
           size="sm"
-          aria-label="Clear all theme filters"
+          aria-label="Очистить все фильтры"
         >
           <X className="h-3 w-3" />
-          Clear Filters
+          Очистить фильтры
         </Button>
       </div>
 
@@ -133,7 +133,7 @@ export default function ThemeFilterPanel({ className = "", compact = false }: Th
           role="status"
           aria-live="polite"
         >
-          Showing books with themes: <span className="font-semibold">{selectedThemes.join(", ")}</span>
+          Показаны книги с темами: <span className="font-semibold">{selectedThemes.join(", ")}</span>
         </div>
       )}
     </div>

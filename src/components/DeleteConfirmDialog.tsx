@@ -36,7 +36,7 @@ export default function DeleteConfirmDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="Confirm Deletion" maxWidth="md">
+    <Dialog open={open} onClose={onClose} title="Подтверждение удаления" maxWidth="md">
       <div className="space-y-6">
         <div className="flex items-start gap-4 p-4 rounded-lg bg-pink-900/20 border border-pink-500/30">
           <div className="rounded-full bg-pink-500/20 p-2 shrink-0">
@@ -44,20 +44,20 @@ export default function DeleteConfirmDialog({
           </div>
           <div className="flex-1">
             <h4 className="text-lg font-semibold text-pink-200 mb-2">
-              Are you sure you want to delete this book?
+              Вы уверены, что хотите удалить эту книгу?
             </h4>
             <p className="text-purple-200/80">
-              This action cannot be undone. The following book will be permanently removed from your
-              library:
+              Это действие нельзя отменить. Следующая книга будет окончательно удалена из вашей
+              библиотеки:
             </p>
           </div>
         </div>
 
         <div className="rounded-lg bg-purple-500/10 border border-purple-500/30 p-4">
           <h5 className="text-xl font-bold text-purple-100 mb-1">{book.title}</h5>
-          <p className="text-purple-200/80 mb-3">by {book.author}</p>
+          <p className="text-purple-200/80 mb-3">{book.author}</p>
           {book.year && (
-            <p className="text-sm text-purple-300/70 mb-2">Published: {book.year}</p>
+            <p className="text-sm text-purple-300/70 mb-2">Опубликовано: {book.year}</p>
           )}
           {book.themes.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -78,10 +78,14 @@ export default function DeleteConfirmDialog({
             <p className="text-yellow-200 flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
               <span>
-                <strong>Warning:</strong> This book has {connections.length} connection
-                {connections.length > 1 ? "s" : ""} to other books. Deleting this book will also
-                remove {connections.length > 1 ? "these" : "this"} connection
-                {connections.length > 1 ? "s" : ""} from the graph.
+                <strong>Внимание:</strong> Эта книга имеет {connections.length} связ
+                {connections.length === 1
+                  ? "ь"
+                  : connections.length > 1 && connections.length < 5
+                    ? "и"
+                    : "ей"}{" "}
+                с другими книгами. Удаление этой книги также удалит{" "}
+                {connections.length === 1 ? "эту связь" : "эти связи"} из графа.
               </span>
             </p>
           </div>
@@ -89,11 +93,11 @@ export default function DeleteConfirmDialog({
 
         <div className="flex gap-3 pt-4">
           <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
-            Cancel
+            Отмена
           </Button>
           <Button type="button" variant="danger" onClick={handleDelete} className="flex-1">
             <Trash2 className="h-4 w-4" />
-            Delete Book
+            Удалить книгу
           </Button>
         </div>
       </div>

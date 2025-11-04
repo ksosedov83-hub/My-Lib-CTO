@@ -30,13 +30,13 @@ export default function AppShell({ children }: AppShellProps) {
               <div className="flex items-center gap-2">
                 <Sparkles className="h-6 w-6 text-purple-400" />
                 <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                  Cosmic
+                  Космос
                 </span>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="lg:hidden text-purple-300 hover:text-purple-100 transition-colors"
-                aria-label="Close sidebar"
+                aria-label="Закрыть боковую панель"
               >
                 <X className="h-6 w-6" />
               </button>
@@ -48,31 +48,31 @@ export default function AppShell({ children }: AppShellProps) {
                   href="/"
                   className="block px-4 py-2 rounded-lg text-purple-300 hover:bg-purple-500/10 transition-colors"
                 >
-                  Home
+                  Главная
                 </a>
                 <a
                   href="/library"
                   className="block px-4 py-2 rounded-lg text-purple-300 hover:bg-purple-500/10 transition-colors"
                 >
-                  Library
+                  Библиотека
                 </a>
                 <a
                   href="/graph"
                   className="block px-4 py-2 rounded-lg bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 transition-colors"
                 >
-                  Knowledge Graph
+                  Граф знаний
                 </a>
                 <a
                   href="/library-test"
                   className="block px-4 py-2 rounded-lg text-purple-300 hover:bg-purple-500/10 transition-colors"
                 >
-                  Library Test
+                  Тест библиотеки
                 </a>
               </div>
             </nav>
 
             <div className="border-t border-purple-500/20 p-4">
-              <p className="text-xs text-purple-400/60 text-center">Cosmic App v0.1.0</p>
+              <p className="text-xs text-purple-400/60 text-center">Космос v0.1.0</p>
             </div>
           </div>
         </aside>
@@ -90,18 +90,18 @@ export default function AppShell({ children }: AppShellProps) {
             <button
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden text-purple-300 hover:text-purple-100 transition-colors"
-              aria-label="Open sidebar"
+              aria-label="Открыть боковую панель"
             >
               <Menu className="h-6 w-6" />
             </button>
 
             <div className="flex items-center gap-4">
-              <h1 className="text-lg font-semibold text-purple-100">Welcome to the Cosmos</h1>
+              <h1 className="text-lg font-semibold text-purple-100">Добро пожаловать в Космос</h1>
             </div>
 
             <div className="flex items-center gap-2">
               <button className="rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 transition-all">
-                Get Started
+                Начать
               </button>
             </div>
           </header>

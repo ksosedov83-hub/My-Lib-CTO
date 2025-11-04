@@ -38,10 +38,10 @@ export default function GraphPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-              Library Knowledge Graph
+              Граф знаний библиотеки
             </h1>
             <p className="text-purple-200/70 mt-1">
-              Explore connections between books in your cosmic library
+              Исследуйте связи между книгами в вашей космической библиотеке
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -50,18 +50,18 @@ export default function GraphPage() {
               variant={showFilterPanel ? "primary" : "secondary"}
             >
               <Filter className="h-4 w-4" />
-              {showFilterPanel ? "Hide" : "Show"} Filters
+              {showFilterPanel ? "Скрыть" : "Показать"} фильтры
             </Button>
             <Button
               onClick={() => setShowLegend(!showLegend)}
               variant={showLegend ? "primary" : "secondary"}
             >
               <Eye className="h-4 w-4" />
-              {showLegend ? "Hide" : "Show"} Legend
+              {showLegend ? "Скрыть" : "Показать"} легенду
             </Button>
             <Button onClick={() => setShowConnectionsPanel(true)}>
               <Link2 className="h-4 w-4" />
-              Connections
+              Связи
             </Button>
           </div>
         </div>
@@ -93,8 +93,8 @@ export default function GraphPage() {
 
           <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-auto md:bottom-auto md:top-4 md:left-4 max-w-xs">
             <div className="text-sm text-purple-300/70 bg-purple-900/80 backdrop-blur-md border border-purple-500/30 rounded-lg px-3 py-2 shadow-lg">
-              <span className="font-semibold">Tip:</span> Drag nodes, zoom with scroll, hover for
-              details
+              <span className="font-semibold">Подсказка:</span> Перетаскивайте узлы, масштабируйте
+              колёсиком, наводите для деталей
             </div>
           </div>
         </div>
@@ -113,12 +113,12 @@ export default function GraphPage() {
                   className="text-2xl font-bold text-purple-100 flex items-center gap-2"
                 >
                   <BookOpen className="h-6 w-6" />
-                  Book Details
+                  Детали книги
                 </h2>
                 <button
                   onClick={handleCloseDetails}
                   className="p-2 rounded-lg hover:bg-purple-500/20 transition-colors text-purple-200 hover:text-purple-100"
-                  aria-label="Close details"
+                  aria-label="Закрыть детали"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -127,13 +127,13 @@ export default function GraphPage() {
               <div className="p-6 space-y-6">
                 <div>
                   <h3 className="text-3xl font-bold text-purple-100 mb-2">{selectedBook.title}</h3>
-                  <p className="text-xl text-purple-200">by {selectedBook.author}</p>
+                  <p className="text-xl text-purple-200">{selectedBook.author}</p>
                 </div>
 
                 {selectedBook.year && (
                   <div className="flex items-center gap-2 text-purple-300">
                     <Calendar className="h-4 w-4" />
-                    <span>Published: {selectedBook.year}</span>
+                    <span>Опубликовано: {selectedBook.year}</span>
                   </div>
                 )}
 
@@ -145,7 +145,7 @@ export default function GraphPage() {
 
                 {selectedBook.description && (
                   <div>
-                    <h4 className="text-lg font-semibold text-purple-100 mb-2">Description</h4>
+                    <h4 className="text-lg font-semibold text-purple-100 mb-2">Описание</h4>
                     <p className="text-purple-200/80 leading-relaxed">{selectedBook.description}</p>
                   </div>
                 )}
@@ -154,7 +154,7 @@ export default function GraphPage() {
                   <div>
                     <h4 className="text-lg font-semibold text-purple-100 mb-3 flex items-center gap-2">
                       <Tag className="h-4 w-4" />
-                      Themes
+                      Темы
                     </h4>
                     <div className="flex flex-wrap gap-2">
                       {selectedBook.themes.map((theme) => (
@@ -171,7 +171,7 @@ export default function GraphPage() {
 
                 {selectedBook.notes && (
                   <div>
-                    <h4 className="text-lg font-semibold text-purple-100 mb-2">Notes</h4>
+                    <h4 className="text-lg font-semibold text-purple-100 mb-2">Заметки</h4>
                     <p className="text-purple-200/80 italic leading-relaxed">{selectedBook.notes}</p>
                   </div>
                 )}
@@ -182,9 +182,10 @@ export default function GraphPage() {
 
                 <div className="pt-4 border-t border-purple-500/30">
                   <div className="text-xs text-purple-300/60 space-y-1">
-                    <p>Created: {new Date(selectedBook.createdAt).toLocaleDateString()}</p>
+                    <p>Создано: {new Date(selectedBook.createdAt).toLocaleDateString("ru-RU")}</p>
                     <p>
-                      Last Updated: {new Date(selectedBook.updatedAt).toLocaleDateString()}
+                      Обновлено:{" "}
+                      {new Date(selectedBook.updatedAt).toLocaleDateString("ru-RU")}
                     </p>
                   </div>
                 </div>
@@ -208,12 +209,12 @@ export default function GraphPage() {
                 className="text-2xl font-bold text-purple-100 flex items-center gap-2"
               >
                 <Link2 className="h-6 w-6" />
-                Manage All Connections
+                Управление всеми связями
               </h2>
               <button
                 onClick={() => setShowConnectionsPanel(false)}
                 className="p-2 rounded-lg hover:bg-purple-500/20 transition-colors text-purple-200 hover:text-purple-100"
-                aria-label="Close connections panel"
+                aria-label="Закрыть панель связей"
               >
                 <X className="h-5 w-5" />
               </button>

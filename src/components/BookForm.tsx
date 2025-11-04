@@ -47,38 +47,38 @@ export default function BookForm({ book, onSuccess, onCancel }: BookFormProps) {
     const newErrors: FormErrors = {};
 
     if (!formData.title.trim()) {
-      newErrors.title = "Title is required";
+      newErrors.title = "Название обязательно";
     } else if (formData.title.trim().length < 2) {
-      newErrors.title = "Title must be at least 2 characters";
+      newErrors.title = "Название должно быть не менее 2 символов";
     }
 
     if (!formData.author.trim()) {
-      newErrors.author = "Author is required";
+      newErrors.author = "Автор обязателен";
     } else if (formData.author.trim().length < 2) {
-      newErrors.author = "Author must be at least 2 characters";
+      newErrors.author = "Имя автора должно быть не менее 2 символов";
     }
 
     if (formData.year) {
       const yearNum = parseInt(formData.year, 10);
       const currentYear = new Date().getFullYear();
       if (isNaN(yearNum)) {
-        newErrors.year = "Year must be a valid number";
+        newErrors.year = "Год должен быть числом";
       } else if (yearNum < 1000 || yearNum > currentYear + 10) {
-        newErrors.year = `Year must be between 1000 and ${currentYear + 10}`;
+        newErrors.year = `Год должен быть между 1000 и ${currentYear + 10}`;
       }
     }
 
     if (formData.isbn) {
       const cleanIsbn = formData.isbn.replace(/[-\s]/g, "");
       if (cleanIsbn.length !== 10 && cleanIsbn.length !== 13) {
-        newErrors.isbn = "ISBN must be 10 or 13 digits";
+        newErrors.isbn = "ISBN должен содержать 10 или 13 цифр";
       } else if (!/^\d+$/.test(cleanIsbn)) {
-        newErrors.isbn = "ISBN must contain only numbers";
+        newErrors.isbn = "ISBN должен содержать только цифры";
       }
     }
 
     if (formData.themes.length === 0) {
-      newErrors.themes = "Please select at least one theme";
+      newErrors.themes = "Пожалуйста, выберите хотя бы одну тему";
     }
 
     setErrors(newErrors);
@@ -115,7 +115,7 @@ export default function BookForm({ book, onSuccess, onCancel }: BookFormProps) {
         onSuccess();
       }
     } catch (error) {
-      console.error("Error saving book:", error);
+      console.error("Ошибка сохранения книги:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -142,12 +142,12 @@ export default function BookForm({ book, onSuccess, onCancel }: BookFormProps) {
         </div>
         <div>
           <h3 className="text-xl font-semibold text-purple-100">
-            {isEditing ? "Edit Book" : "Add New Book"}
+            {isEditing ? "Редактировать книгу" : "Добавить новую книгу"}
           </h3>
           <p className="text-sm text-purple-300/70">
             {isEditing
-              ? "Update the book information below"
-              : "Fill in the details to add a new book to your library"}
+              ? "Обновите информацию о книге ниже"
+              : "Заполните детали, чтобы добавить новую книгу в библиотеку"}
           </p>
         </div>
       </div>
@@ -155,32 +155,32 @@ export default function BookForm({ book, onSuccess, onCancel }: BookFormProps) {
       <div className="grid gap-6 md:grid-cols-2">
         <Input
           id="title"
-          label="Title"
+          label="Название"
           required
           value={formData.title}
           onChange={(e) => handleChange("title", e.target.value)}
           error={errors.title}
-          placeholder="Enter book title"
+          placeholder="Введите название книги"
         />
 
         <Input
           id="author"
-          label="Author"
+          label="Автор"
           required
           value={formData.author}
           onChange={(e) => handleChange("author", e.target.value)}
           error={errors.author}
-          placeholder="Enter author name"
+          placeholder="Введите имя автора"
         />
 
         <Input
           id="year"
-          label="Publication Year"
+          label="Год издания"
           type="number"
           value={formData.year}
           onChange={(e) => handleChange("year", e.target.value)}
           error={errors.year}
-          placeholder="e.g., 2024"
+          placeholder="напр., 2024"
         />
 
         <Input
@@ -189,49 +189,49 @@ export default function BookForm({ book, onSuccess, onCancel }: BookFormProps) {
           value={formData.isbn}
           onChange={(e) => handleChange("isbn", e.target.value)}
           error={errors.isbn}
-          placeholder="e.g., 978-0-123456-78-9"
-          helperText="10 or 13 digits"
+          placeholder="напр., 978-0-123456-78-9"
+          helperText="10 или 13 цифр"
         />
       </div>
 
       <Textarea
         id="description"
-        label="Description"
+        label="Описание"
         value={formData.description}
         onChange={(e) => handleChange("description", e.target.value)}
-        placeholder="Brief description of the book..."
+        placeholder="Краткое описание книги..."
         rows={4}
       />
 
       <MultiSelect
-        label="Themes"
+        label="Темы"
         required
         options={themeOptions}
         value={formData.themes}
         onChange={(value) => handleChange("themes", value)}
         error={errors.themes}
-        placeholder="Select one or more themes"
-        helperText="Choose themes that best describe this book"
+        placeholder="Выберите одну или несколько тем"
+        helperText="Выберите темы, которые лучше всего описывают эту книгу"
       />
 
       <Textarea
         id="notes"
-        label="Notes"
+        label="Заметки"
         value={formData.notes}
         onChange={(e) => handleChange("notes", e.target.value)}
-        placeholder="Personal notes, thoughts, or highlights..."
+        placeholder="Личные заметки, мысли или выделенное..."
         rows={4}
       />
 
       <div className="flex gap-3 pt-4 border-t border-purple-500/30">
         {onCancel && (
           <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-            Cancel
+            Отмена
           </Button>
         )}
         <Button type="submit" variant="primary" disabled={isSubmitting}>
           <Save className="h-4 w-4" />
-          {isSubmitting ? "Saving..." : isEditing ? "Update Book" : "Add Book"}
+          {isSubmitting ? "Сохранение..." : isEditing ? "Обновить книгу" : "Добавить книгу"}
         </Button>
       </div>
     </form>
