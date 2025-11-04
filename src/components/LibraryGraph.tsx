@@ -148,7 +148,7 @@ export default function LibraryGraph({
   const animationFrameRef = useRef<number | undefined>(undefined);
   const cameraRef = useRef<THREE.Camera | null>(null);
   const fpsRef = useRef<number>(60);
-  const lastFrameTimeRef = useRef<number>(Date.now());
+  const lastFrameTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
   const isVisibleRef = useRef<boolean>(true);
   const [detectedMode, setDetectedMode] = useState<Exclude<PerformanceMode, "auto">>("high");
@@ -282,7 +282,7 @@ export default function LibraryGraph({
 
       let opacity = highlightNodes.size === 0 || highlightNodes.has(graphNode.id) ? 1 : 0.3;
       if (selectedThemes.length > 0) {
-        opacity = matchesFilter ? 1 : 0.2;
+        opacity = matchesFilter ? 1 : 0.1;
       }
 
       const lod = getNodeLOD(graphNode);
@@ -296,8 +296,10 @@ export default function LibraryGraph({
       );
 
       // Choose material based on LOD and config
+      // Disable glow for non-matching nodes when filter is active
       let material: THREE.Material;
-      if (lod === "high" && config.enableGlow) {
+      const enableGlowForNode = config.enableGlow && (selectedThemes.length === 0 || matchesFilter);
+      if (lod === "high" && enableGlowForNode) {
         const materialKey = `phong-${graphNode.color}-${opacity.toFixed(2)}`;
         material = getCachedMaterial(
           materialKey,
@@ -337,8 +339,9 @@ export default function LibraryGraph({
 
       group.add(sphere);
 
-      // Halo only for high detail and if enabled
-      if (config.enableHalo && lod === "high") {
+      // Halo only for high detail, if enabled, and for matching nodes when filter is active
+      const enableHaloForNode = config.enableHalo && (selectedThemes.length === 0 || matchesFilter);
+      if (enableHaloForNode && lod === "high") {
         const haloSize = size * (isSelected ? 2.5 : isHovered ? 2.2 : 1.8);
         const haloGeometryKey = `sphere-${haloSize.toFixed(1)}-8`;
         const haloGeometry = getCachedGeometry(
@@ -453,7 +456,7 @@ export default function LibraryGraph({
 
       let linkAlpha = isHighlighted ? 0.6 : 0.15;
       if (selectedThemes.length > 0) {
-        linkAlpha = bothMatch ? 0.6 : 0.1;
+        linkAlpha = bothMatch ? 0.6 : 0.05;
       }
 
       const start = new THREE.Vector3(sourceNode.x || 0, sourceNode.y || 0, sourceNode.z || 0);
@@ -556,6 +559,9 @@ export default function LibraryGraph({
   // FPS monitoring for auto mode
   useEffect(() => {
     if (performanceMode !== "auto") return;
+
+    // Initialize the timer
+    lastFrameTimeRef.current = Date.now();
 
     const monitorFPS = () => {
       const now = Date.now();
@@ -664,15 +670,26 @@ export default function LibraryGraph({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (node: any) => {
       const graphNode = node as GraphNode | null;
-      setHoveredNode(graphNode);
-      if (onNodeHover) {
-        onNodeHover(graphNode?.book || null);
-      }
 
       if (!graphNode) {
+        setHoveredNode(null);
         setHighlightNodes(new Set());
         setHighlightLinks(new Set());
+        if (onNodeHover) {
+          onNodeHover(null);
+        }
         return;
+      }
+
+      // Only allow hover on matching nodes when filter is active
+      if (selectedThemes.length > 0 && !bookMatchesFilter(graphNode.book)) {
+        // Do not set hover state for non-matching books
+        return;
+      }
+
+      setHoveredNode(graphNode);
+      if (onNodeHover) {
+        onNodeHover(graphNode.book);
       }
 
       const neighbors = new Set<string>();
@@ -696,7 +713,7 @@ export default function LibraryGraph({
       setHighlightNodes(neighbors);
       setHighlightLinks(linkIds);
     },
-    [graphData.links, onNodeHover]
+    [graphData.links, onNodeHover, selectedThemes, bookMatchesFilter]
   );
 
   const handleNodeClick = useCallback(
@@ -851,14 +868,17 @@ export default function LibraryGraph({
 
   // Cleanup on unmount
   useEffect(() => {
+    const geomCache = geometryCache.current;
+    const matCache = materialCache.current;
+
     return () => {
       // Dispose cached geometries
-      geometryCache.current.forEach((geometry) => geometry.dispose());
-      geometryCache.current.clear();
+      geomCache.forEach((geometry) => geometry.dispose());
+      geomCache.clear();
 
       // Dispose cached materials
-      materialCache.current.forEach((material) => material.dispose());
-      materialCache.current.clear();
+      matCache.forEach((material) => material.dispose());
+      matCache.clear();
     };
   }, []);
 
