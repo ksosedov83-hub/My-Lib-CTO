@@ -762,15 +762,20 @@ export default function LibraryGraph({
       // Configure orbit controls for better panning
       const controls = graphRef.current.controls();
       if (controls) {
-        // Enable panning with right and middle mouse buttons
-        controls.mouseButtons = {
-          LEFT: THREE.MOUSE.ROTATE,
-          MIDDLE: THREE.MOUSE.PAN,
-          RIGHT: THREE.MOUSE.PAN,
-        };
+        // CRITICAL: Enable panning with right and middle mouse buttons
         controls.enablePan = true;
         controls.panSpeed = 1.0;
         controls.screenSpacePanning = true; // Pan in screen space (more intuitive)
+        
+        // Set mouse button mappings using THREE.MOUSE constants
+        controls.mouseButtons = {
+          LEFT: THREE.MOUSE.ROTATE,    // 0 - left button for rotation
+          MIDDLE: THREE.MOUSE.PAN,     // 1 - middle button for pan
+          RIGHT: THREE.MOUSE.PAN       // 2 - right button for pan
+        };
+        
+        // Apply changes
+        controls.update();
       }
 
       // Store initial camera position (only once)
@@ -796,12 +801,13 @@ export default function LibraryGraph({
         );
         existingStars.forEach((obj: THREE.Object3D) => scene.remove(obj));
 
-        // Simplified lighting setup
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        // Simplified lighting setup - realistic space lighting (neutral white)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambientLight);
 
         if (config.lightCount >= 2) {
-          const directionalLight = new THREE.DirectionalLight(0xa855f7, 0.8);
+          // Neutral white directional light (like distant starlight)
+          const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
           directionalLight.position.set(100, 200, 100);
           scene.add(directionalLight);
         }
@@ -812,10 +818,11 @@ export default function LibraryGraph({
         const colors = new Float32Array(config.starCount * 3);
         const sizes = new Float32Array(config.starCount);
 
+        // Realistic star colors: white, yellowish, light blue (like real stars)
         const starColors = [
-          new THREE.Color(0xffffff),
-          new THREE.Color(0xc4b5fd),
-          new THREE.Color(0xa5b4fc),
+          new THREE.Color(0xffffff), // White stars
+          new THREE.Color(0xffffcc), // Yellowish stars
+          new THREE.Color(0xaaddff), // Light blue stars
         ];
 
         for (let i = 0; i < config.starCount; i++) {
@@ -857,10 +864,11 @@ export default function LibraryGraph({
         const nebulaPositions = new Float32Array(config.nebulaCount * 3);
         const nebulaColors = new Float32Array(config.nebulaCount * 3);
 
+        // Realistic nebula colors: deep blue, cyan, light blue (like cosmic gas clouds)
         const nebulaColors1 = [
-          new THREE.Color(0x7c3aed),
-          new THREE.Color(0x3b82f6),
-          new THREE.Color(0x06b6d4),
+          new THREE.Color(0x1e3a8a), // Deep blue
+          new THREE.Color(0x0891b2), // Cyan
+          new THREE.Color(0x60a5fa), // Light blue
         ];
 
         for (let i = 0; i < config.nebulaCount; i++) {
@@ -949,22 +957,33 @@ export default function LibraryGraph({
 
   focusOnFilteredNodesRef.current = useCallback(
     (filteredNodeIds: string[], retryCount: number = 0) => {
-      if (!graphRef.current || filteredNodeIds.length === 0) return;
+      console.log('🎯 focusOnFilteredNodes called with IDs:', filteredNodeIds, 'retry:', retryCount);
+      
+      if (!graphRef.current || filteredNodeIds.length === 0) {
+        console.log('❌ Early return: no graph or no IDs');
+        return;
+      }
 
       // Get filtered nodes with positions
       const filteredNodes = graphData.nodes.filter(
         (n) => filteredNodeIds.includes(n.id) && n.x !== undefined && n.y !== undefined && n.z !== undefined
       );
 
+      console.log('📍 Filtered nodes with coordinates:', filteredNodes.length, '/', filteredNodeIds.length);
+
       // If positions aren't ready yet, retry up to 5 times
       if (filteredNodes.length === 0 && retryCount < 5) {
+        console.log('⏳ No coordinates yet, retrying in 500ms...');
         setTimeout(() => {
           focusOnFilteredNodesRef.current(filteredNodeIds, retryCount + 1);
         }, 500);
         return;
       }
 
-      if (filteredNodes.length === 0) return;
+      if (filteredNodes.length === 0) {
+        console.log('❌ No nodes with coordinates after retries');
+        return;
+      }
 
       // Calculate bounding box
       const xs = filteredNodes.map((n) => n.x!);
@@ -982,16 +1001,22 @@ export default function LibraryGraph({
       const centerY = (minY + maxY) / 2;
       const centerZ = (minZ + maxZ) / 2;
 
+      console.log('📐 Center position:', { x: centerX, y: centerY, z: centerZ });
+
       const sizeX = maxX - minX;
       const sizeY = maxY - minY;
       const sizeZ = maxZ - minZ;
-      const maxDim = Math.max(sizeX, sizeY, sizeZ);
+      const maxDim = Math.max(sizeX, sizeY, sizeZ, 50); // Minimum size of 50 for single nodes
+
+      console.log('📏 Bounding box size:', { sizeX, sizeY, sizeZ, maxDim });
 
       // Calculate camera distance with padding
       const fov = 75; // field of view
-      const paddingFactor = 1.8;
+      const paddingFactor = 2.0; // Increased padding for better visibility
       const cameraDistance =
         ((maxDim / 2) / Math.tan((fov / 2) * (Math.PI / 180))) * paddingFactor;
+
+      console.log('📷 Camera distance:', cameraDistance);
 
       // Smooth transition to the filtered nodes
       graphRef.current.cameraPosition(
@@ -999,23 +1024,30 @@ export default function LibraryGraph({
         { x: centerX, y: centerY, z: centerZ },
         1800 // 1.8 second transition
       );
+
+      console.log('✅ Camera moved to filtered nodes!');
     },
     [graphData]
   );
 
   // Trigger autofocus when filter changes
   useEffect(() => {
+    console.log('🔄 Filter changed, selectedThemes:', selectedThemes);
+    
     if (selectedThemes.length > 0) {
       // Get IDs of filtered nodes
       const filteredIds = graphData.nodes
         .filter((node) => node.themes.some((t) => selectedThemes.includes(t)))
         .map((n) => n.id);
 
+      console.log('📚 Filtered book IDs:', filteredIds);
+
       // Small delay to let the force simulation stabilize
       setTimeout(() => {
         focusOnFilteredNodesRef.current(filteredIds);
       }, 800);
     } else {
+      console.log('🏠 Filter cleared, returning to initial view');
       // Return to initial view when filter is cleared
       resetCamera();
     }
