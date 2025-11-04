@@ -132,7 +132,7 @@ export default function LibraryGraph({
   onNodeHover,
   selectedBookId,
   highlightedBookIds: _highlightedBookIds = [],
-  selectedThemes = [],
+  selectedThemes: _selectedThemesProp = [],
   className = "",
 }: LibraryGraphProps) {
   const books = useLibraryStore((state) => state.books);
@@ -140,6 +140,9 @@ export default function LibraryGraph({
   const themes = useLibraryStore((state) => state.themes);
   const performanceMode = useAppStore((state) => state.performanceMode);
   const setPerformanceMode = useAppStore((state) => state.setPerformanceMode);
+
+  // Get selectedThemes from store directly
+  const selectedThemes = useAppStore((state) => state.selectedThemes);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null);
@@ -160,9 +163,8 @@ export default function LibraryGraph({
   const initialCameraPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
   const initialCameraLookAtRef = useRef<{ x: number; y: number; z: number } | null>(null);
 
-  // Shared geometry and material cache for better performance
+  // Shared geometry cache for better performance (materials are NOT cached)
   const geometryCache = useRef<Map<string, THREE.BufferGeometry>>(new Map());
-  const materialCache = useRef<Map<string, THREE.Material>>(new Map());
 
   // Get active performance config
   const activeMode = performanceMode === "auto" ? detectedMode : performanceMode;
@@ -249,14 +251,6 @@ export default function LibraryGraph({
     return geometryCache.current.get(key)!;
   }, []);
 
-  // Get or create cached material
-  const getCachedMaterial = useCallback((key: string, create: () => THREE.Material) => {
-    if (!materialCache.current.has(key)) {
-      materialCache.current.set(key, create());
-    }
-    return materialCache.current.get(key)!;
-  }, []);
-
   // Calculate distance-based LOD level
   const getNodeLOD = useCallback(
     (node: GraphNode): "high" | "medium" | "low" => {
@@ -304,40 +298,23 @@ export default function LibraryGraph({
 
       // Choose material based on LOD and config
       // Disable glow for non-matching nodes when filter is active
+      // ✅ Create NEW material each time (no caching) with correct opacity
       let material: THREE.Material;
       const enableGlowForNode = config.enableGlow && (selectedThemes.length === 0 || matchesFilter);
       if (lod === "high" && enableGlowForNode) {
-        const materialKey = `phong-${graphNode.color}`;
-        material = getCachedMaterial(
-          materialKey,
-          () =>
-            new THREE.MeshLambertMaterial({
-              color: color,
-              emissive: color,
-              emissiveIntensity: 0.2,
-              transparent: true,
-              opacity: opacity,
-            })
-        );
-        // CRITICAL: Always update opacity to current value (for filter changes)
-        const lambertMat = material as THREE.MeshLambertMaterial;
-        lambertMat.opacity = opacity;
-        lambertMat.needsUpdate = true; // CRITICAL: Tell Three.js to re-render
+        material = new THREE.MeshLambertMaterial({
+          color: color,
+          emissive: color,
+          emissiveIntensity: 0.2,
+          transparent: true,
+          opacity: opacity,
+        });
       } else {
-        const materialKey = `basic-${graphNode.color}`;
-        material = getCachedMaterial(
-          materialKey,
-          () =>
-            new THREE.MeshBasicMaterial({
-              color: color,
-              transparent: true,
-              opacity: opacity,
-            })
-        );
-        // CRITICAL: Always update opacity to current value (for filter changes)
-        const basicMat = material as THREE.MeshBasicMaterial;
-        basicMat.opacity = opacity;
-        basicMat.needsUpdate = true; // CRITICAL: Tell Three.js to re-render
+        material = new THREE.MeshBasicMaterial({
+          color: color,
+          transparent: true,
+          opacity: opacity,
+        });
       }
 
       const sphere = new THREE.Mesh(geometry, material);
@@ -365,21 +342,13 @@ export default function LibraryGraph({
         );
 
         const haloOpacity = (isSelected || isHovered ? 0.3 : 0.15) * opacity;
-        const haloMaterialKey = `halo-${graphNode.color}`;
-        const haloMaterial = getCachedMaterial(
-          haloMaterialKey,
-          () =>
-            new THREE.MeshBasicMaterial({
-              color: color,
-              transparent: true,
-              opacity: haloOpacity,
-              side: THREE.BackSide,
-            })
-        );
-        // CRITICAL: Always update opacity to current value (for filter changes)
-        const haloMat = haloMaterial as THREE.MeshBasicMaterial;
-        haloMat.opacity = haloOpacity;
-        haloMat.needsUpdate = true; // CRITICAL: Tell Three.js to re-render
+        // ✅ Create NEW halo material each time (no caching) with correct opacity
+        const haloMaterial = new THREE.MeshBasicMaterial({
+          color: color,
+          transparent: true,
+          opacity: haloOpacity,
+          side: THREE.BackSide,
+        });
 
         const halo = new THREE.Mesh(haloGeometry, haloMaterial);
         group.add(halo);
@@ -394,16 +363,12 @@ export default function LibraryGraph({
         );
 
         const ringColor = isSelected ? "#7c3aed" : "#3b82f6";
-        const ringMaterialKey = `ring-${ringColor}`;
-        const ringMaterial = getCachedMaterial(
-          ringMaterialKey,
-          () =>
-            new THREE.MeshBasicMaterial({
-              color: ringColor,
-              transparent: true,
-              opacity: 0.8,
-            })
-        );
+        // ✅ Create NEW ring material each time (no caching)
+        const ringMaterial = new THREE.MeshBasicMaterial({
+          color: ringColor,
+          transparent: true,
+          opacity: 0.8,
+        });
 
         const ring = new THREE.Mesh(ringGeometry, ringMaterial);
         ring.rotation.x = Math.PI / 2;
@@ -449,11 +414,11 @@ export default function LibraryGraph({
       selectedBookId,
       hoveredNode,
       highlightNodes,
-      selectedThemes,
+      selectedThemes, // ✅ CRITICAL: This triggers re-render when filter changes
       config,
       getNodeLOD,
       getCachedGeometry,
-      getCachedMaterial,
+      // ✅ Removed getCachedMaterial - we don't cache materials anymore
     ]
   );
 
@@ -537,16 +502,12 @@ export default function LibraryGraph({
         );
 
         for (let i = 0; i < particleCount; i++) {
-          const particleMaterialKey = `particle-${graphLink.color}`;
-          const particleMaterial = getCachedMaterial(
-            particleMaterialKey,
-            () =>
-              new THREE.MeshBasicMaterial({
-                color: color,
-                transparent: true,
-                opacity: 0.8,
-              })
-          );
+          // ✅ Create NEW particle material each time (no caching)
+          const particleMaterial = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.8,
+          });
 
           const particle = new THREE.Mesh(particleGeometry, particleMaterial);
 
@@ -568,11 +529,11 @@ export default function LibraryGraph({
     },
     [
       highlightLinks,
-      selectedThemes,
+      selectedThemes, // ✅ CRITICAL: This triggers re-render when filter changes
       bookMatchesFilter,
       config,
       getCachedGeometry,
-      getCachedMaterial,
+      // ✅ Removed getCachedMaterial - we don't cache materials anymore
     ]
   );
 
@@ -937,16 +898,14 @@ export default function LibraryGraph({
   // Cleanup on unmount
   useEffect(() => {
     const geomCache = geometryCache.current;
-    const matCache = materialCache.current;
 
     return () => {
       // Dispose cached geometries
       geomCache.forEach((geometry) => geometry.dispose());
       geomCache.clear();
 
-      // Dispose cached materials
-      matCache.forEach((material) => material.dispose());
-      matCache.clear();
+      // Note: Materials are created on-demand and disposed automatically by Three.js
+      // when their parent objects are removed from the scene
     };
   }, []);
 
@@ -1081,19 +1040,7 @@ export default function LibraryGraph({
   useEffect(() => {
     console.log("🔄 Filter changed, selectedThemes:", selectedThemes);
 
-    // CRITICAL: Force graph refresh when filter changes to apply new opacity values
-    if (graphRef.current) {
-      console.log("🔄 Forcing graph refresh to update node visibility...");
-      const currentData = graphRef.current.graphData();
-
-      // Trigger re-render of all nodeThreeObject by creating new array references
-      graphRef.current.graphData({
-        nodes: [...currentData.nodes], // Create new array to trigger update
-        links: currentData.links,
-      });
-
-      console.log("✅ Graph refreshed with updated opacity values");
-    }
+    // ✅ NO manual graph refresh needed - useCallback dependencies handle it automatically
 
     if (selectedThemes.length > 0) {
       // Get IDs of filtered nodes
