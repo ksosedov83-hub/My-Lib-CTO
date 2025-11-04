@@ -24,8 +24,7 @@ export default function Button({
       "bg-purple-500/20 text-purple-200 border border-purple-500/40 hover:bg-purple-500/30 hover:border-purple-500/60 focus:ring-purple-500",
     danger:
       "bg-gradient-to-r from-pink-600 to-red-600 text-white shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-105 focus:ring-pink-500",
-    ghost:
-      "text-purple-200 hover:bg-purple-500/20 hover:text-purple-100 focus:ring-purple-500",
+    ghost: "text-purple-200 hover:bg-purple-500/20 hover:text-purple-100 focus:ring-purple-500",
   };
 
   const sizeStyles = {

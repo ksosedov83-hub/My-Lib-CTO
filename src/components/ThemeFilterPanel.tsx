@@ -11,7 +11,10 @@ interface ThemeFilterPanelProps {
   compact?: boolean;
 }
 
-export default function ThemeFilterPanel({ className = "", compact = false }: ThemeFilterPanelProps) {
+export default function ThemeFilterPanel({
+  className = "",
+  compact: _compact = false,
+}: ThemeFilterPanelProps) {
   const themes = useLibraryStore((state) => state.themes);
   const selectedThemes = useAppStore((state) => state.selectedThemes);
   const toggleThemeFilter = useAppStore((state) => state.toggleThemeFilter);
@@ -133,7 +136,8 @@ export default function ThemeFilterPanel({ className = "", compact = false }: Th
           role="status"
           aria-live="polite"
         >
-          Показаны книги с темами: <span className="font-semibold">{selectedThemes.join(", ")}</span>
+          Показаны книги с темами:{" "}
+          <span className="font-semibold">{selectedThemes.join(", ")}</span>
         </div>
       )}
     </div>

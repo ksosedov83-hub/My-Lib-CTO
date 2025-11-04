@@ -6,7 +6,6 @@ import { Connection } from "@/types";
 import Dialog from "@/components/ui/Dialog";
 import Button from "@/components/ui/Button";
 import ConnectionForm from "@/components/ConnectionForm";
-import DeleteConfirmDialog from "@/components/DeleteConfirmDialog";
 import { Plus, Edit2, Trash2, Link2, ArrowRight, Search, Filter } from "lucide-react";
 import Input from "@/components/ui/Input";
 
@@ -37,7 +36,6 @@ const CONNECTION_COLORS: Record<string, string> = {
 };
 
 export default function ConnectionManagementPanel({ bookId }: ConnectionManagementPanelProps) {
-  const books = useLibraryStore((state) => state.books);
   const connections = useLibraryStore((state) => state.connections);
   const getBook = useLibraryStore((state) => state.getBook);
   const deleteConnection = useLibraryStore((state) => state.deleteConnection);
@@ -218,7 +216,9 @@ export default function ConnectionManagementPanel({ bookId }: ConnectionManageme
                     </div>
 
                     {connection.label && (
-                      <p className="text-sm text-purple-200 mt-2 italic">"{connection.label}"</p>
+                      <p className="text-sm text-purple-200 mt-2 italic">
+                        &ldquo;{connection.label}&rdquo;
+                      </p>
                     )}
 
                     {connection.notes && (

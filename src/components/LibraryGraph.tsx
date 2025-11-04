@@ -4,8 +4,10 @@ import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useLibraryStore } from "@/stores/useLibraryStore";
 import { Book, Connection, ConnectionType } from "@/types";
+import * as THREE from "three";
+import { Maximize2, Minimize2 } from "lucide-react";
 
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
+const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
   ssr: false,
 });
 
@@ -18,17 +20,22 @@ interface GraphNode {
   color: string;
   val: number;
   book: Book;
+  x?: number;
+  y?: number;
+  z?: number;
+  __threeObj?: THREE.Object3D;
 }
 
 interface GraphLink {
-  source: string;
-  target: string;
+  source: string | GraphNode;
+  target: string | GraphNode;
   type: ConnectionType;
   strength: number;
   label?: string;
   color: string;
   width: number;
   connection: Connection;
+  __lineObj?: THREE.Object3D;
 }
 
 interface LibraryGraphProps {
@@ -55,19 +62,22 @@ export default function LibraryGraph({
   onNodeClick,
   onNodeHover,
   selectedBookId,
-  highlightedBookIds = [],
+  highlightedBookIds: _highlightedBookIds = [],
   selectedThemes = [],
   className = "",
 }: LibraryGraphProps) {
   const books = useLibraryStore((state) => state.books);
   const connections = useLibraryStore((state) => state.connections);
   const themes = useLibraryStore((state) => state.themes);
-  const getTheme = useLibraryStore((state) => state.getTheme);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [highlightNodes, setHighlightNodes] = useState<Set<string>>(new Set());
   const [highlightLinks, setHighlightLinks] = useState<Set<string>>(new Set());
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const animationFrameRef = useRef<number | undefined>(undefined);
 
   const bookMatchesFilter = useCallback(
     (book: Book): boolean => {
@@ -98,9 +108,7 @@ export default function LibraryGraph({
             .map((themeName) => themes.find((t) => t.name === themeName)?.color)
             .filter((color): color is string => color !== undefined);
 
-          if (themeColors.length > 1) {
-            return themeColors[0];
-          } else if (themeColors.length === 1) {
+          if (themeColors.length >= 1) {
             return themeColors[0];
           }
         }
@@ -125,7 +133,7 @@ export default function LibraryGraph({
         year: book.year,
         themes: book.themes,
         color: getBookColor(book),
-        val: Math.max(3, connectionCount * 2),
+        val: Math.max(5, connectionCount * 3),
         book,
       };
     });
@@ -137,14 +145,281 @@ export default function LibraryGraph({
       strength: conn.strength,
       label: conn.label,
       color: CONNECTION_COLORS[conn.type],
-      width: Math.max(1, conn.strength * 3),
+      width: Math.max(0.5, conn.strength * 1.5),
       connection: conn,
     }));
 
     return { nodes, links };
   }, [books, connections, getBookColor]);
 
+  // Create beautiful 3D node with gradient material and glow
+  const createNodeObject = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (node: any) => {
+      const graphNode = node as GraphNode;
+      const group = new THREE.Group();
+
+      const matchesFilter = bookMatchesFilter(graphNode.book);
+      const filteredThemeCount = getFilteredThemeCount(graphNode.book);
+      const isSelected = selectedBookId === graphNode.id;
+      const isHovered = hoveredNode?.id === graphNode.id;
+
+      const size = graphNode.val / 2 || 3;
+      const color = new THREE.Color(graphNode.color);
+
+      let opacity = highlightNodes.size === 0 || highlightNodes.has(graphNode.id) ? 1 : 0.3;
+      if (selectedThemes.length > 0) {
+        opacity = matchesFilter ? 1 : 0.2;
+      }
+
+      // Main sphere with gradient material
+      const geometry = new THREE.SphereGeometry(size, 32, 32);
+      const material = new THREE.MeshPhongMaterial({
+        color: color,
+        emissive: color,
+        emissiveIntensity: 0.3,
+        shininess: 100,
+        transparent: true,
+        opacity: opacity,
+      });
+      const sphere = new THREE.Mesh(geometry, material);
+
+      // Add pulsing animation
+      const userData = {
+        pulsePhase: Math.random() * Math.PI * 2,
+        baseSize: size,
+        baseOpacity: opacity,
+        color: graphNode.color,
+      };
+      sphere.userData = userData;
+
+      group.add(sphere);
+
+      // Glowing halo
+      const haloSize = size * (isSelected ? 2.5 : isHovered ? 2.2 : 1.8);
+      const haloGeometry = new THREE.SphereGeometry(haloSize, 16, 16);
+      const haloMaterial = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: (isSelected || isHovered ? 0.3 : 0.15) * opacity,
+        side: THREE.BackSide,
+      });
+      const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+      group.add(halo);
+
+      // Selection/hover ring
+      if (isSelected || isHovered) {
+        const ringGeometry = new THREE.TorusGeometry(size * 1.5, 0.3, 16, 32);
+        const ringMaterial = new THREE.MeshBasicMaterial({
+          color: isSelected ? "#7c3aed" : "#3b82f6",
+          transparent: true,
+          opacity: 0.8,
+        });
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.rotation.x = Math.PI / 2;
+        group.add(ring);
+      }
+
+      // Badge for multiple filtered themes
+      if (filteredThemeCount > 1 && matchesFilter) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#7c3aed";
+          ctx.beginPath();
+          ctx.arc(32, 32, 30, 0, 2 * Math.PI);
+          ctx.fill();
+
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 32px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(filteredThemeCount.toString(), 32, 32);
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(size * 0.8, size * 0.8, 1);
+        sprite.position.set(size * 0.8, size * 0.8, 0);
+        group.add(sprite);
+      }
+
+      return group;
+    },
+    [
+      bookMatchesFilter,
+      getFilteredThemeCount,
+      selectedBookId,
+      hoveredNode,
+      highlightNodes,
+      selectedThemes,
+    ]
+  );
+
+  // Create curved edge with particles
+  const createLinkObject = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (link: any) => {
+      const graphLink = link as GraphLink;
+      const sourceNode = graphLink.source as GraphNode;
+      const targetNode = graphLink.target as GraphNode;
+
+      if (!sourceNode || !targetNode) return new THREE.Group();
+
+      const linkId = `${sourceNode.id}-${targetNode.id}`;
+      const isHighlighted = highlightLinks.size === 0 || highlightLinks.has(linkId);
+
+      const sourceMatches = bookMatchesFilter(sourceNode.book);
+      const targetMatches = bookMatchesFilter(targetNode.book);
+      const bothMatch = sourceMatches && targetMatches;
+
+      let linkAlpha = isHighlighted ? 0.6 : 0.15;
+      if (selectedThemes.length > 0) {
+        linkAlpha = bothMatch ? 0.6 : 0.1;
+      }
+
+      const start = new THREE.Vector3(sourceNode.x || 0, sourceNode.y || 0, sourceNode.z || 0);
+      const end = new THREE.Vector3(targetNode.x || 0, targetNode.y || 0, targetNode.z || 0);
+
+      // Create curved line using quadratic bezier
+      const midPoint = new THREE.Vector3().lerpVectors(start, end, 0.5);
+      const distance = start.distanceTo(end);
+      const offset = distance * 0.2;
+
+      // Offset perpendicular to the line
+      const direction = new THREE.Vector3().subVectors(end, start).normalize();
+      const perpendicular = new THREE.Vector3(
+        -direction.y,
+        direction.x,
+        direction.z * 0.5
+      ).normalize();
+      midPoint.add(perpendicular.multiplyScalar(offset));
+
+      const curve = new THREE.QuadraticBezierCurve3(start, midPoint, end);
+      const points = curve.getPoints(50);
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+      const color = new THREE.Color(graphLink.color);
+      const material = new THREE.LineBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: linkAlpha,
+        linewidth: graphLink.width,
+      });
+
+      const line = new THREE.Line(geometry, material);
+
+      const group = new THREE.Group();
+      group.add(line);
+
+      // Animated particles along the edge
+      if (isHighlighted && highlightLinks.size > 0) {
+        const particleCount = 3;
+        for (let i = 0; i < particleCount; i++) {
+          const particleGeometry = new THREE.SphereGeometry(0.5, 8, 8);
+          const particleMaterial = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.8,
+          });
+          const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+
+          const t = i / particleCount;
+          const pos = curve.getPoint(t);
+          particle.position.copy(pos);
+
+          particle.userData = {
+            curve: curve,
+            offset: t,
+            speed: 0.01,
+          };
+
+          group.add(particle);
+        }
+      }
+
+      return group;
+    },
+    [highlightLinks, selectedThemes, bookMatchesFilter]
+  );
+
+  // Animation loop for pulsing nodes, particle movement, and cosmic effects
+  useEffect(() => {
+    const animate = () => {
+      const time = Date.now() * 0.001;
+
+      if (graphRef.current) {
+        const scene = graphRef.current.scene();
+        if (scene) {
+          scene.traverse((object: THREE.Object3D) => {
+            // Animate node pulsing
+            if (object.userData?.pulsePhase !== undefined) {
+              const pulse = Math.sin(time * 2 + object.userData.pulsePhase) * 0.1 + 1;
+              object.scale.set(pulse, pulse, pulse);
+
+              // Breathing glow
+              const material = (object as THREE.Mesh).material as THREE.MeshPhongMaterial;
+              if (material.emissiveIntensity !== undefined) {
+                material.emissiveIntensity =
+                  0.2 + Math.sin(time * 2 + object.userData.pulsePhase) * 0.15;
+              }
+            }
+
+            // Animate particles along edges
+            if (object.userData?.curve) {
+              object.userData.offset = (object.userData.offset + object.userData.speed) % 1;
+              const pos = object.userData.curve.getPoint(object.userData.offset);
+              object.position.copy(pos);
+            }
+
+            // Rotate starfield slowly
+            if (object.name === "starfield") {
+              object.rotation.y = time * 0.02;
+            }
+
+            // Animate nebula with breathing effect
+            if (object.name === "nebula") {
+              object.rotation.y = time * 0.01;
+              object.rotation.x = time * 0.005;
+              const material = (object as THREE.Points).material as THREE.PointsMaterial;
+              if (material.opacity !== undefined) {
+                material.opacity = 0.1 + Math.sin(time * 0.5) * 0.05;
+              }
+            }
+          });
+
+          // Animate point lights
+          const lights = scene.children.filter(
+            (child: THREE.Object3D) => child instanceof THREE.PointLight
+          );
+          lights.forEach((light: THREE.Object3D, index: number) => {
+            const pointLight = light as THREE.PointLight;
+            pointLight.intensity = (index === 0 ? 0.8 : 0.6) + Math.sin(time * 1.5 + index) * 0.2;
+          });
+        }
+      }
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
   const handleNodeHover = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (node: any) => {
       const graphNode = node as GraphNode | null;
       setHoveredNode(graphNode);
@@ -162,15 +437,16 @@ export default function LibraryGraph({
       const linkIds = new Set<string>();
 
       graphData.links.forEach((link) => {
-        if (link.source === graphNode.id || (link.source as any).id === graphNode.id) {
-          const targetId = typeof link.target === "string" ? link.target : (link.target as any).id;
+        const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+        const targetId = typeof link.target === "string" ? link.target : link.target.id;
+
+        if (sourceId === graphNode.id) {
           neighbors.add(targetId);
-          linkIds.add(`${link.source}-${link.target}`);
+          linkIds.add(`${sourceId}-${targetId}`);
         }
-        if (link.target === graphNode.id || (link.target as any).id === graphNode.id) {
-          const sourceId = typeof link.source === "string" ? link.source : (link.source as any).id;
+        if (targetId === graphNode.id) {
           neighbors.add(sourceId);
-          linkIds.add(`${link.source}-${link.target}`);
+          linkIds.add(`${sourceId}-${targetId}`);
         }
       });
 
@@ -182,10 +458,26 @@ export default function LibraryGraph({
   );
 
   const handleNodeClick = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (node: any) => {
       const graphNode = node as GraphNode;
       if (onNodeClick) {
         onNodeClick(graphNode.book);
+      }
+
+      // Smooth camera transition to node
+      if (
+        graphRef.current &&
+        graphNode.x !== undefined &&
+        graphNode.y !== undefined &&
+        graphNode.z !== undefined
+      ) {
+        const distance = 300;
+        graphRef.current.cameraPosition(
+          { x: graphNode.x, y: graphNode.y, z: graphNode.z + distance },
+          graphNode,
+          1000
+        );
       }
     },
     [onNodeClick]
@@ -193,157 +485,184 @@ export default function LibraryGraph({
 
   useEffect(() => {
     if (graphRef.current) {
-      graphRef.current.d3Force("charge")?.strength(-300);
-      graphRef.current.d3Force("link")?.distance(100);
+      graphRef.current.d3Force("charge")?.strength(-800);
+      graphRef.current.d3Force("link")?.distance(150);
       graphRef.current.d3Force("center")?.strength(0.1);
 
-      graphRef.current.d3ReheatSimulation();
+      // Add enhanced lighting to the scene
+      const scene = graphRef.current.scene();
+      if (scene) {
+        // Clear existing lights
+        const existingLights = scene.children.filter(
+          (child: THREE.Object3D) => child instanceof THREE.Light
+        );
+        existingLights.forEach((light: THREE.Object3D) => scene.remove(light));
+
+        // Ambient light for base illumination
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        // Main directional light (key light)
+        const directionalLight1 = new THREE.DirectionalLight(0xa855f7, 1);
+        directionalLight1.position.set(100, 200, 100);
+        scene.add(directionalLight1);
+
+        // Fill light (opposite side)
+        const directionalLight2 = new THREE.DirectionalLight(0x3b82f6, 0.6);
+        directionalLight2.position.set(-100, -50, -100);
+        scene.add(directionalLight2);
+
+        // Rim light (back)
+        const directionalLight3 = new THREE.DirectionalLight(0x06b6d4, 0.4);
+        directionalLight3.position.set(0, -100, -200);
+        scene.add(directionalLight3);
+
+        // Point lights for cosmic atmosphere
+        const pointLight1 = new THREE.PointLight(0x7c3aed, 0.8, 500);
+        pointLight1.position.set(200, 100, 0);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(0xec4899, 0.6, 500);
+        pointLight2.position.set(-200, -100, 100);
+        scene.add(pointLight2);
+
+        // Add starfield background
+        const starsGeometry = new THREE.BufferGeometry();
+        const starCount = 3000;
+        const positions = new Float32Array(starCount * 3);
+        const colors = new Float32Array(starCount * 3);
+        const sizes = new Float32Array(starCount);
+
+        const starColors = [
+          new THREE.Color(0xffffff),
+          new THREE.Color(0xc4b5fd),
+          new THREE.Color(0xa5b4fc),
+          new THREE.Color(0x818cf8),
+          new THREE.Color(0xfbc2eb),
+        ];
+
+        for (let i = 0; i < starCount; i++) {
+          const i3 = i * 3;
+          const radius = 1000 + Math.random() * 1000;
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(2 * Math.random() - 1);
+
+          positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+          positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+          positions[i3 + 2] = radius * Math.cos(phi);
+
+          const color = starColors[Math.floor(Math.random() * starColors.length)];
+          colors[i3] = color.r;
+          colors[i3 + 1] = color.g;
+          colors[i3 + 2] = color.b;
+
+          sizes[i] = Math.random() * 2 + 0.5;
+        }
+
+        starsGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        starsGeometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+        starsGeometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+
+        const starsMaterial = new THREE.PointsMaterial({
+          size: 2,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.8,
+          sizeAttenuation: true,
+        });
+
+        const starField = new THREE.Points(starsGeometry, starsMaterial);
+        starField.name = "starfield";
+        scene.add(starField);
+
+        // Add nebula effect using particles
+        const nebulaGeometry = new THREE.BufferGeometry();
+        const nebulaCount = 500;
+        const nebulaPositions = new Float32Array(nebulaCount * 3);
+        const nebulaColors = new Float32Array(nebulaCount * 3);
+        const nebulaSizes = new Float32Array(nebulaCount);
+
+        const nebulaColors1 = [
+          new THREE.Color(0x7c3aed),
+          new THREE.Color(0xec4899),
+          new THREE.Color(0x3b82f6),
+          new THREE.Color(0x06b6d4),
+        ];
+
+        for (let i = 0; i < nebulaCount; i++) {
+          const i3 = i * 3;
+          const radius = 500 + Math.random() * 800;
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(2 * Math.random() - 1);
+
+          nebulaPositions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+          nebulaPositions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+          nebulaPositions[i3 + 2] = radius * Math.cos(phi);
+
+          const color = nebulaColors1[Math.floor(Math.random() * nebulaColors1.length)];
+          nebulaColors[i3] = color.r;
+          nebulaColors[i3 + 1] = color.g;
+          nebulaColors[i3 + 2] = color.b;
+
+          nebulaSizes[i] = Math.random() * 20 + 10;
+        }
+
+        nebulaGeometry.setAttribute("position", new THREE.BufferAttribute(nebulaPositions, 3));
+        nebulaGeometry.setAttribute("color", new THREE.BufferAttribute(nebulaColors, 3));
+        nebulaGeometry.setAttribute("size", new THREE.BufferAttribute(nebulaSizes, 1));
+
+        const nebulaMaterial = new THREE.PointsMaterial({
+          size: 30,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.15,
+          sizeAttenuation: true,
+          blending: THREE.AdditiveBlending,
+        });
+
+        const nebula = new THREE.Points(nebulaGeometry, nebulaMaterial);
+        nebula.name = "nebula";
+        scene.add(nebula);
+      }
     }
   }, [graphData]);
 
-  const nodeCanvasObject = useCallback(
-    (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      const book = node.book as Book;
-      const matchesFilter = bookMatchesFilter(book);
-      const filteredThemeCount = getFilteredThemeCount(book);
+  // Fullscreen handling
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+      });
+    }
+  }, []);
 
-      const isHighlighted =
-        highlightNodes.size === 0 ||
-        highlightNodes.has(node.id) ||
-        highlightedBookIds.includes(node.id);
-      const isSelected = selectedBookId === node.id;
-      const isHovered = hoveredNode?.id === node.id;
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
 
-      const size = node.val || 5;
-      let opacity = isHighlighted ? 1 : 0.3;
-
-      if (selectedThemes.length > 0) {
-        opacity = matchesFilter ? 1 : 0.2;
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === "f" || e.key === "F") {
+        if (!document.fullscreenElement) {
+          toggleFullscreen();
+        }
       }
+    };
 
-      if (isSelected || isHovered) {
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, size + 4, 0, 2 * Math.PI);
-        ctx.fillStyle = isSelected ? "rgba(124, 58, 237, 0.3)" : "rgba(59, 130, 246, 0.3)";
-        ctx.fill();
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("keydown", handleKeyPress);
 
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, size + 2, 0, 2 * Math.PI);
-        ctx.fillStyle = isSelected ? "rgba(124, 58, 237, 0.5)" : "rgba(59, 130, 246, 0.5)";
-        ctx.fill();
-      }
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("keydown", handleKeyPress);
+    };
+  }, [toggleFullscreen]);
 
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, size, 0, 2 * Math.PI);
-      ctx.fillStyle = node.color;
-      ctx.globalAlpha = opacity;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      ctx.strokeStyle = isSelected ? "#7c3aed" : isHovered ? "#3b82f6" : "rgba(255, 255, 255, 0.3)";
-      ctx.lineWidth = isSelected || isHovered ? 2 : 1;
-      ctx.stroke();
-
-      if (filteredThemeCount > 1 && matchesFilter) {
-        const badgeSize = 10;
-        const badgeX = node.x + size - badgeSize / 2;
-        const badgeY = node.y - size + badgeSize / 2;
-
-        ctx.beginPath();
-        ctx.arc(badgeX, badgeY, badgeSize / 2, 0, 2 * Math.PI);
-        ctx.fillStyle = "#7c3aed";
-        ctx.fill();
-
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        ctx.font = "bold 8px Inter, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(filteredThemeCount.toString(), badgeX, badgeY);
-      }
-
-      if (globalScale > 1.5 || isHovered || isSelected) {
-        const label = node.name;
-        const fontSize = Math.max(10, 12 / globalScale);
-        ctx.font = `${fontSize}px Inter, sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-
-        const textY = node.y + size + 4;
-
-        ctx.fillStyle = "rgba(10, 1, 24, 0.8)";
-        const textWidth = ctx.measureText(label).width;
-        ctx.fillRect(node.x - textWidth / 2 - 4, textY - 2, textWidth + 8, fontSize + 4);
-
-        ctx.fillStyle = isHighlighted && matchesFilter ? "#e0e7ff" : "#a5b4fc";
-        ctx.fillText(label, node.x, textY);
-      }
-    },
-    [
-      highlightNodes,
-      highlightedBookIds,
-      selectedBookId,
-      hoveredNode,
-      selectedThemes,
-      bookMatchesFilter,
-      getFilteredThemeCount,
-    ]
-  );
-
-  const linkCanvasObject = useCallback(
-    (link: any, ctx: CanvasRenderingContext2D) => {
-      const linkId = `${link.source.id}-${link.target.id}`;
-      const isHighlighted = highlightLinks.size === 0 || highlightLinks.has(linkId);
-
-      const sourceBook = link.source.book as Book;
-      const targetBook = link.target.book as Book;
-      const sourceMatches = bookMatchesFilter(sourceBook);
-      const targetMatches = bookMatchesFilter(targetBook);
-      const bothMatch = sourceMatches && targetMatches;
-
-      const start = link.source;
-      const end = link.target;
-
-      ctx.save();
-      let linkAlpha = isHighlighted ? 0.6 : 0.15;
-
-      if (selectedThemes.length > 0) {
-        linkAlpha = bothMatch ? 0.6 : 0.1;
-      }
-
-      ctx.globalAlpha = linkAlpha;
-      ctx.strokeStyle = link.color;
-      ctx.lineWidth = link.width || 1;
-
-      ctx.beginPath();
-      ctx.moveTo(start.x, start.y);
-      ctx.lineTo(end.x, end.y);
-      ctx.stroke();
-
-      if (isHighlighted && highlightLinks.size > 0 && link.label) {
-        const midX = (start.x + end.x) / 2;
-        const midY = (start.y + end.y) / 2;
-
-        ctx.font = "10px Inter, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-
-        const textWidth = ctx.measureText(link.label).width;
-        ctx.fillStyle = "rgba(10, 1, 24, 0.9)";
-        ctx.fillRect(midX - textWidth / 2 - 3, midY - 7, textWidth + 6, 14);
-
-        ctx.fillStyle = "#e0e7ff";
-        ctx.fillText(link.label, midX, midY);
-      }
-
-      ctx.restore();
-    },
-    [highlightLinks, selectedThemes, bookMatchesFilter]
-  );
-
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nodeLabel = useCallback((node: any) => {
     const book = node.book as Book;
     return `
@@ -366,48 +685,54 @@ export default function LibraryGraph({
     `;
   }, []);
 
-  const handleEngineStop = useCallback(() => {
-    if (graphRef.current) {
-      graphRef.current.zoomToFit(400, 50);
-    }
-  }, []);
-
   return (
     <div
+      ref={containerRef}
       className={`relative w-full h-full overflow-hidden rounded-xl ${className}`}
       role="img"
-      aria-label="Interactive library knowledge graph showing books and their connections"
+      aria-label="Interactive 3D library knowledge graph showing books and their connections"
     >
+      {/* Cosmic background layers */}
       <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-transparent to-blue-900/10 pointer-events-none" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(124,58,237,0.08),transparent_50%)] pointer-events-none" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(59,130,246,0.08),transparent_50%)] pointer-events-none" />
 
-      <ForceGraph2D
+      <ForceGraph3D
         ref={graphRef}
         graphData={graphData}
         nodeLabel={nodeLabel}
-        nodeCanvasObject={nodeCanvasObject}
-        linkCanvasObject={linkCanvasObject}
+        nodeThreeObject={createNodeObject}
+        nodeThreeObjectExtend={false}
+        linkThreeObject={createLinkObject}
+        linkThreeObjectExtend={false}
         onNodeClick={handleNodeClick}
         onNodeHover={handleNodeHover}
-        onNodeDrag={handleNodeHover}
-        onNodeDragEnd={handleNodeHover}
-        onEngineStop={handleEngineStop}
         enableNodeDrag={true}
-        enableZoomInteraction={true}
-        enablePanInteraction={true}
-        cooldownTime={3000}
-        warmupTicks={100}
+        enableNavigationControls={true}
+        showNavInfo={false}
         backgroundColor="rgba(0, 0, 0, 0)"
-        linkDirectionalParticles={0}
-        linkDirectionalParticleWidth={0}
+        controlType="orbit"
         d3VelocityDecay={0.3}
-        nodeRelSize={1}
       />
 
+      {/* Fullscreen button */}
+      <button
+        onClick={toggleFullscreen}
+        className="absolute top-4 right-4 z-10 p-3 rounded-lg bg-purple-900/80 backdrop-blur-md border border-purple-500/30 hover:bg-purple-800/80 transition-all duration-300 shadow-lg hover:shadow-purple-500/50 group"
+        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        title={isFullscreen ? "Exit fullscreen (ESC)" : "Enter fullscreen (F)"}
+      >
+        {isFullscreen ? (
+          <Minimize2 className="h-5 w-5 text-purple-200 group-hover:text-purple-100" />
+        ) : (
+          <Maximize2 className="h-5 w-5 text-purple-200 group-hover:text-purple-100" />
+        )}
+      </button>
+
+      {/* Info card for hovered node */}
       {hoveredNode && (
         <div
-          className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-gradient-to-br from-purple-900/80 to-blue-900/80 backdrop-blur-xl border border-purple-500/30 rounded-lg p-4 shadow-2xl"
+          className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-gradient-to-br from-purple-900/90 to-blue-900/90 backdrop-blur-xl border border-purple-500/30 rounded-lg p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300"
           role="status"
           aria-live="polite"
         >

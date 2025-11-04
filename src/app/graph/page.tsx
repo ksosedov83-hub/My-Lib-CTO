@@ -13,7 +13,6 @@ import Button from "@/components/ui/Button";
 
 export default function GraphPage() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-  const [hoveredBook, setHoveredBook] = useState<Book | null>(null);
   const [showConnectionsPanel, setShowConnectionsPanel] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(true);
   const [showLegend, setShowLegend] = useState(true);
@@ -24,8 +23,8 @@ export default function GraphPage() {
     setSelectedBook(book);
   }, []);
 
-  const handleNodeHover = useCallback((book: Book | null) => {
-    setHoveredBook(book);
+  const handleNodeHover = useCallback((_book: Book | null) => {
+    // Hover handling is done internally by LibraryGraph
   }, []);
 
   const handleCloseDetails = useCallback(() => {
@@ -80,7 +79,7 @@ export default function GraphPage() {
           />
 
           {showLegend && (
-            <div className="absolute top-4 right-4 max-w-xs hidden lg:block animate-in fade-in slide-in-from-right-2 duration-300">
+            <div className="absolute top-20 right-4 max-w-xs hidden lg:block animate-in fade-in slide-in-from-right-2 duration-300">
               <GraphLegend />
             </div>
           )}
@@ -91,10 +90,10 @@ export default function GraphPage() {
             </div>
           )}
 
-          <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-auto md:bottom-auto md:top-4 md:left-4 max-w-xs">
+          <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-auto md:bottom-auto md:top-4 md:left-4 max-w-sm">
             <div className="text-sm text-purple-300/70 bg-purple-900/80 backdrop-blur-md border border-purple-500/30 rounded-lg px-3 py-2 shadow-lg">
-              <span className="font-semibold">Подсказка:</span> Перетаскивайте узлы, масштабируйте
-              колёсиком, наводите для деталей
+              <span className="font-semibold">3D Controls:</span> Drag to rotate • Scroll to zoom •
+              Right-click to pan • Click nodes to focus • Press F for fullscreen
             </div>
           </div>
         </div>
@@ -172,7 +171,9 @@ export default function GraphPage() {
                 {selectedBook.notes && (
                   <div>
                     <h4 className="text-lg font-semibold text-purple-100 mb-2">Заметки</h4>
-                    <p className="text-purple-200/80 italic leading-relaxed">{selectedBook.notes}</p>
+                    <p className="text-purple-200/80 italic leading-relaxed">
+                      {selectedBook.notes}
+                    </p>
                   </div>
                 )}
 
@@ -183,10 +184,7 @@ export default function GraphPage() {
                 <div className="pt-4 border-t border-purple-500/30">
                   <div className="text-xs text-purple-300/60 space-y-1">
                     <p>Создано: {new Date(selectedBook.createdAt).toLocaleDateString("ru-RU")}</p>
-                    <p>
-                      Обновлено:{" "}
-                      {new Date(selectedBook.updatedAt).toLocaleDateString("ru-RU")}
-                    </p>
+                    <p>Обновлено: {new Date(selectedBook.updatedAt).toLocaleDateString("ru-RU")}</p>
                   </div>
                 </div>
               </div>

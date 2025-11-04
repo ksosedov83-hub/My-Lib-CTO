@@ -130,9 +130,7 @@ export default function MultiSelect({
                         style={{ backgroundColor: option.color || "#7c3aed" }}
                       />
                       <span>{option.label}</span>
-                      {isSelected && (
-                        <span className="ml-auto text-purple-400 text-sm">✓</span>
-                      )}
+                      {isSelected && <span className="ml-auto text-purple-400 text-sm">✓</span>}
                     </div>
                   </div>
                 );

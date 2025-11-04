@@ -81,7 +81,8 @@ export default function LibraryPage() {
               Управление библиотекой
             </h1>
             <p className="text-purple-200/70 mt-1">
-              Управляйте вашей коллекцией из {books.length} книг{books.length % 10 === 1 && books.length % 100 !== 11 ? "и" : ""}
+              Управляйте вашей коллекцией из {books.length} книг
+              {books.length % 10 === 1 && books.length % 100 !== 11 ? "и" : ""}
             </p>
           </div>
           <Button onClick={() => setShowAddDialog(true)}>
@@ -171,9 +172,7 @@ export default function LibraryPage() {
                 )}
 
                 {book.description && (
-                  <p className="text-sm text-purple-200/70 line-clamp-3 mb-4">
-                    {book.description}
-                  </p>
+                  <p className="text-sm text-purple-200/70 line-clamp-3 mb-4">{book.description}</p>
                 )}
 
                 {book.themes.length > 0 && (
