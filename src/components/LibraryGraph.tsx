@@ -3,9 +3,10 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useLibraryStore } from "@/stores/useLibraryStore";
+import { useAppStore, PerformanceMode } from "@/stores/useAppStore";
 import { Book, Connection, ConnectionType } from "@/types";
 import * as THREE from "three";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, Minimize2, Zap } from "lucide-react";
 
 const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
   ssr: false,
@@ -58,6 +59,71 @@ const CONNECTION_COLORS: Record<ConnectionType, string> = {
   custom: "#6b7280",
 };
 
+// Performance configuration based on mode
+interface PerformanceConfig {
+  starCount: number;
+  nebulaCount: number;
+  nodeLODLevels: {
+    high: number;
+    medium: number;
+    low: number;
+  };
+  sphereSegments: {
+    high: number;
+    medium: number;
+    low: number;
+  };
+  curvePoints: {
+    high: number;
+    medium: number;
+    low: number;
+  };
+  enableHalo: boolean;
+  enableGlow: boolean;
+  enableParticles: boolean;
+  enableAnimations: boolean;
+  lightCount: number;
+}
+
+const PERFORMANCE_CONFIGS: Record<Exclude<PerformanceMode, "auto">, PerformanceConfig> = {
+  low: {
+    starCount: 400,
+    nebulaCount: 50,
+    nodeLODLevels: { high: 100, medium: 250, low: 500 },
+    sphereSegments: { high: 8, medium: 6, low: 4 },
+    curvePoints: { high: 15, medium: 10, low: 8 },
+    enableHalo: false,
+    enableGlow: false,
+    enableParticles: false,
+    enableAnimations: false,
+    lightCount: 1,
+  },
+  medium: {
+    starCount: 600,
+    nebulaCount: 100,
+    nodeLODLevels: { high: 150, medium: 350, low: 600 },
+    sphereSegments: { high: 12, medium: 8, low: 6 },
+    curvePoints: { high: 25, medium: 15, low: 10 },
+    enableHalo: true,
+    enableGlow: false,
+    enableParticles: false,
+    enableAnimations: true,
+    lightCount: 2,
+  },
+  high: {
+    starCount: 800,
+    nebulaCount: 150,
+    nodeLODLevels: { high: 200, medium: 400, low: 700 },
+    sphereSegments: { high: 16, medium: 10, low: 6 },
+    curvePoints: { high: 35, medium: 20, low: 12 },
+    enableHalo: true,
+    enableGlow: true,
+    enableParticles: true,
+    enableAnimations: true,
+    lightCount: 2,
+  },
+};
+
 export default function LibraryGraph({
   onNodeClick,
   onNodeHover,
@@ -69,6 +135,8 @@ export default function LibraryGraph({
   const books = useLibraryStore((state) => state.books);
   const connections = useLibraryStore((state) => state.connections);
   const themes = useLibraryStore((state) => state.themes);
+  const performanceMode = useAppStore((state) => state.performanceMode);
+  const setPerformanceMode = useAppStore((state) => state.setPerformanceMode);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null);
@@ -78,6 +146,20 @@ export default function LibraryGraph({
   const [highlightLinks, setHighlightLinks] = useState<Set<string>>(new Set());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const animationFrameRef = useRef<number | undefined>(undefined);
+  const cameraRef = useRef<THREE.Camera | null>(null);
+  const fpsRef = useRef<number>(60);
+  const lastFrameTimeRef = useRef<number>(Date.now());
+  const frameCountRef = useRef<number>(0);
+  const isVisibleRef = useRef<boolean>(true);
+  const [detectedMode, setDetectedMode] = useState<Exclude<PerformanceMode, "auto">>("high");
+
+  // Shared geometry and material cache for better performance
+  const geometryCache = useRef<Map<string, THREE.BufferGeometry>>(new Map());
+  const materialCache = useRef<Map<string, THREE.Material>>(new Map());
+
+  // Get active performance config
+  const activeMode = performanceMode === "auto" ? detectedMode : performanceMode;
+  const config = PERFORMANCE_CONFIGS[activeMode];
 
   const bookMatchesFilter = useCallback(
     (book: Book): boolean => {
@@ -152,7 +234,38 @@ export default function LibraryGraph({
     return { nodes, links };
   }, [books, connections, getBookColor]);
 
-  // Create beautiful 3D node with gradient material and glow
+  // Get or create cached geometry
+  const getCachedGeometry = useCallback((key: string, create: () => THREE.BufferGeometry) => {
+    if (!geometryCache.current.has(key)) {
+      geometryCache.current.set(key, create());
+    }
+    return geometryCache.current.get(key)!;
+  }, []);
+
+  // Get or create cached material
+  const getCachedMaterial = useCallback((key: string, create: () => THREE.Material) => {
+    if (!materialCache.current.has(key)) {
+      materialCache.current.set(key, create());
+    }
+    return materialCache.current.get(key)!;
+  }, []);
+
+  // Calculate distance-based LOD level
+  const getNodeLOD = useCallback(
+    (node: GraphNode): "high" | "medium" | "low" => {
+      if (!cameraRef.current || !node.x || !node.y || !node.z) return "low";
+
+      const nodePos = new THREE.Vector3(node.x, node.y, node.z);
+      const distance = cameraRef.current.position.distanceTo(nodePos);
+
+      if (distance < config.nodeLODLevels.high) return "high";
+      if (distance < config.nodeLODLevels.medium) return "medium";
+      return "low";
+    },
+    [config]
+  );
+
+  // Optimized node creation with LOD
   const createNodeObject = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (node: any) => {
@@ -172,56 +285,110 @@ export default function LibraryGraph({
         opacity = matchesFilter ? 1 : 0.2;
       }
 
-      // Main sphere with gradient material
-      const geometry = new THREE.SphereGeometry(size, 32, 32);
-      const material = new THREE.MeshPhongMaterial({
-        color: color,
-        emissive: color,
-        emissiveIntensity: 0.3,
-        shininess: 100,
-        transparent: true,
-        opacity: opacity,
-      });
+      const lod = getNodeLOD(graphNode);
+      const segments = config.sphereSegments[lod];
+
+      // Use cached or create geometry
+      const geometryKey = `sphere-${size.toFixed(1)}-${segments}`;
+      const geometry = getCachedGeometry(
+        geometryKey,
+        () => new THREE.SphereGeometry(size, segments, segments)
+      );
+
+      // Choose material based on LOD and config
+      let material: THREE.Material;
+      if (lod === "high" && config.enableGlow) {
+        const materialKey = `phong-${graphNode.color}-${opacity.toFixed(2)}`;
+        material = getCachedMaterial(
+          materialKey,
+          () =>
+            new THREE.MeshLambertMaterial({
+              color: color,
+              emissive: color,
+              emissiveIntensity: 0.2,
+              transparent: true,
+              opacity: opacity,
+            })
+        );
+      } else {
+        const materialKey = `basic-${graphNode.color}-${opacity.toFixed(2)}`;
+        material = getCachedMaterial(
+          materialKey,
+          () =>
+            new THREE.MeshBasicMaterial({
+              color: color,
+              transparent: true,
+              opacity: opacity,
+            })
+        );
+      }
+
       const sphere = new THREE.Mesh(geometry, material);
 
-      // Add pulsing animation
-      const userData = {
-        pulsePhase: Math.random() * Math.PI * 2,
-        baseSize: size,
-        baseOpacity: opacity,
-        color: graphNode.color,
-      };
-      sphere.userData = userData;
+      // Add animation data only if enabled and LOD is high
+      if (config.enableAnimations && lod === "high") {
+        sphere.userData = {
+          pulsePhase: Math.random() * Math.PI * 2,
+          baseSize: size,
+          baseOpacity: opacity,
+          color: graphNode.color,
+        };
+      }
 
       group.add(sphere);
 
-      // Glowing halo
-      const haloSize = size * (isSelected ? 2.5 : isHovered ? 2.2 : 1.8);
-      const haloGeometry = new THREE.SphereGeometry(haloSize, 16, 16);
-      const haloMaterial = new THREE.MeshBasicMaterial({
-        color: color,
-        transparent: true,
-        opacity: (isSelected || isHovered ? 0.3 : 0.15) * opacity,
-        side: THREE.BackSide,
-      });
-      const halo = new THREE.Mesh(haloGeometry, haloMaterial);
-      group.add(halo);
+      // Halo only for high detail and if enabled
+      if (config.enableHalo && lod === "high") {
+        const haloSize = size * (isSelected ? 2.5 : isHovered ? 2.2 : 1.8);
+        const haloGeometryKey = `sphere-${haloSize.toFixed(1)}-8`;
+        const haloGeometry = getCachedGeometry(
+          haloGeometryKey,
+          () => new THREE.SphereGeometry(haloSize, 8, 8)
+        );
 
-      // Selection/hover ring
-      if (isSelected || isHovered) {
-        const ringGeometry = new THREE.TorusGeometry(size * 1.5, 0.3, 16, 32);
-        const ringMaterial = new THREE.MeshBasicMaterial({
-          color: isSelected ? "#7c3aed" : "#3b82f6",
-          transparent: true,
-          opacity: 0.8,
-        });
+        const haloMaterialKey = `halo-${graphNode.color}-${opacity.toFixed(2)}`;
+        const haloMaterial = getCachedMaterial(
+          haloMaterialKey,
+          () =>
+            new THREE.MeshBasicMaterial({
+              color: color,
+              transparent: true,
+              opacity: (isSelected || isHovered ? 0.3 : 0.15) * opacity,
+              side: THREE.BackSide,
+            })
+        );
+
+        const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+        group.add(halo);
+      }
+
+      // Selection/hover ring (only for selected/hovered)
+      if ((isSelected || isHovered) && lod !== "low") {
+        const ringGeometryKey = `torus-${size.toFixed(1)}`;
+        const ringGeometry = getCachedGeometry(
+          ringGeometryKey,
+          () => new THREE.TorusGeometry(size * 1.5, 0.3, 8, 16)
+        );
+
+        const ringColor = isSelected ? "#7c3aed" : "#3b82f6";
+        const ringMaterialKey = `ring-${ringColor}`;
+        const ringMaterial = getCachedMaterial(
+          ringMaterialKey,
+          () =>
+            new THREE.MeshBasicMaterial({
+              color: ringColor,
+              transparent: true,
+              opacity: 0.8,
+            })
+        );
+
         const ring = new THREE.Mesh(ringGeometry, ringMaterial);
         ring.rotation.x = Math.PI / 2;
         group.add(ring);
       }
 
-      // Badge for multiple filtered themes
-      if (filteredThemeCount > 1 && matchesFilter) {
+      // Badge only for high LOD with multiple themes
+      if (filteredThemeCount > 1 && matchesFilter && lod === "high") {
         const canvas = document.createElement("canvas");
         canvas.width = 64;
         canvas.height = 64;
@@ -260,10 +427,14 @@ export default function LibraryGraph({
       hoveredNode,
       highlightNodes,
       selectedThemes,
+      config,
+      getNodeLOD,
+      getCachedGeometry,
+      getCachedMaterial,
     ]
   );
 
-  // Create curved edge with particles
+  // Optimized link creation
   const createLinkObject = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (link: any) => {
@@ -288,22 +459,32 @@ export default function LibraryGraph({
       const start = new THREE.Vector3(sourceNode.x || 0, sourceNode.y || 0, sourceNode.z || 0);
       const end = new THREE.Vector3(targetNode.x || 0, targetNode.y || 0, targetNode.z || 0);
 
-      // Create curved line using quadratic bezier
+      // Calculate LOD for edges based on camera distance
       const midPoint = new THREE.Vector3().lerpVectors(start, end, 0.5);
+      let edgeLOD: "high" | "medium" | "low" = "low";
+      if (cameraRef.current) {
+        const distance = cameraRef.current.position.distanceTo(midPoint);
+        if (distance < config.nodeLODLevels.high) edgeLOD = "high";
+        else if (distance < config.nodeLODLevels.medium) edgeLOD = "medium";
+      }
+
+      const curvePoints = config.curvePoints[edgeLOD];
+
+      // Create curved line
       const distance = start.distanceTo(end);
       const offset = distance * 0.2;
 
-      // Offset perpendicular to the line
       const direction = new THREE.Vector3().subVectors(end, start).normalize();
       const perpendicular = new THREE.Vector3(
         -direction.y,
         direction.x,
         direction.z * 0.5
       ).normalize();
-      midPoint.add(perpendicular.multiplyScalar(offset));
+      const controlPoint = new THREE.Vector3().lerpVectors(start, end, 0.5);
+      controlPoint.add(perpendicular.multiplyScalar(offset));
 
-      const curve = new THREE.QuadraticBezierCurve3(start, midPoint, end);
-      const points = curve.getPoints(50);
+      const curve = new THREE.QuadraticBezierCurve3(start, controlPoint, end);
+      const points = curve.getPoints(curvePoints);
       const geometry = new THREE.BufferGeometry().setFromPoints(points);
 
       const color = new THREE.Color(graphLink.color);
@@ -311,7 +492,6 @@ export default function LibraryGraph({
         color: color,
         transparent: true,
         opacity: linkAlpha,
-        linewidth: graphLink.width,
       });
 
       const line = new THREE.Line(geometry, material);
@@ -319,16 +499,32 @@ export default function LibraryGraph({
       const group = new THREE.Group();
       group.add(line);
 
-      // Animated particles along the edge
-      if (isHighlighted && highlightLinks.size > 0) {
-        const particleCount = 3;
+      // Particles only for highlighted, high LOD, and if enabled
+      if (
+        config.enableParticles &&
+        isHighlighted &&
+        highlightLinks.size > 0 &&
+        edgeLOD === "high"
+      ) {
+        const particleCount = 2;
+        const particleGeometryKey = "particle-0.5";
+        const particleGeometry = getCachedGeometry(
+          particleGeometryKey,
+          () => new THREE.SphereGeometry(0.5, 4, 4)
+        );
+
         for (let i = 0; i < particleCount; i++) {
-          const particleGeometry = new THREE.SphereGeometry(0.5, 8, 8);
-          const particleMaterial = new THREE.MeshBasicMaterial({
-            color: color,
-            transparent: true,
-            opacity: 0.8,
-          });
+          const particleMaterialKey = `particle-${graphLink.color}`;
+          const particleMaterial = getCachedMaterial(
+            particleMaterialKey,
+            () =>
+              new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.8,
+              })
+          );
+
           const particle = new THREE.Mesh(particleGeometry, particleMaterial);
 
           const t = i / particleCount;
@@ -347,61 +543,97 @@ export default function LibraryGraph({
 
       return group;
     },
-    [highlightLinks, selectedThemes, bookMatchesFilter]
+    [
+      highlightLinks,
+      selectedThemes,
+      bookMatchesFilter,
+      config,
+      getCachedGeometry,
+      getCachedMaterial,
+    ]
   );
 
-  // Animation loop for pulsing nodes, particle movement, and cosmic effects
+  // FPS monitoring for auto mode
+  useEffect(() => {
+    if (performanceMode !== "auto") return;
+
+    const monitorFPS = () => {
+      const now = Date.now();
+      const delta = now - lastFrameTimeRef.current;
+      frameCountRef.current++;
+
+      if (delta >= 1000) {
+        fpsRef.current = (frameCountRef.current * 1000) / delta;
+        frameCountRef.current = 0;
+        lastFrameTimeRef.current = now;
+
+        // Adjust quality based on FPS
+        if (fpsRef.current < 30) {
+          setDetectedMode("low");
+        } else if (fpsRef.current < 45) {
+          setDetectedMode("medium");
+        } else {
+          setDetectedMode("high");
+        }
+      }
+    };
+
+    const interval = setInterval(monitorFPS, 100);
+    return () => clearInterval(interval);
+  }, [performanceMode]);
+
+  // Optimized animation loop
   useEffect(() => {
     const animate = () => {
+      if (!isVisibleRef.current) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      if (!config.enableAnimations) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
       const time = Date.now() * 0.001;
 
       if (graphRef.current) {
         const scene = graphRef.current.scene();
         if (scene) {
+          // Only animate objects that need animation
           scene.traverse((object: THREE.Object3D) => {
-            // Animate node pulsing
-            if (object.userData?.pulsePhase !== undefined) {
-              const pulse = Math.sin(time * 2 + object.userData.pulsePhase) * 0.1 + 1;
+            // Animate node pulsing (only high LOD nodes)
+            if (object.userData?.pulsePhase !== undefined && config.enableGlow) {
+              const pulse = Math.sin(time * 2 + object.userData.pulsePhase) * 0.05 + 1;
               object.scale.set(pulse, pulse, pulse);
 
-              // Breathing glow
-              const material = (object as THREE.Mesh).material as THREE.MeshPhongMaterial;
+              const material = (object as THREE.Mesh).material as THREE.MeshLambertMaterial;
               if (material.emissiveIntensity !== undefined) {
                 material.emissiveIntensity =
-                  0.2 + Math.sin(time * 2 + object.userData.pulsePhase) * 0.15;
+                  0.15 + Math.sin(time * 2 + object.userData.pulsePhase) * 0.1;
               }
             }
 
-            // Animate particles along edges
-            if (object.userData?.curve) {
+            // Animate particles along edges (only if enabled)
+            if (object.userData?.curve && config.enableParticles) {
               object.userData.offset = (object.userData.offset + object.userData.speed) % 1;
               const pos = object.userData.curve.getPoint(object.userData.offset);
               object.position.copy(pos);
             }
 
-            // Rotate starfield slowly
+            // Rotate starfield
             if (object.name === "starfield") {
-              object.rotation.y = time * 0.02;
+              object.rotation.y = time * 0.01;
             }
 
-            // Animate nebula with breathing effect
-            if (object.name === "nebula") {
-              object.rotation.y = time * 0.01;
-              object.rotation.x = time * 0.005;
+            // Animate nebula (throttled)
+            if (object.name === "nebula" && frameCountRef.current % 2 === 0) {
+              object.rotation.y = time * 0.005;
               const material = (object as THREE.Points).material as THREE.PointsMaterial;
               if (material.opacity !== undefined) {
-                material.opacity = 0.1 + Math.sin(time * 0.5) * 0.05;
+                material.opacity = 0.1 + Math.sin(time * 0.5) * 0.03;
               }
             }
-          });
-
-          // Animate point lights
-          const lights = scene.children.filter(
-            (child: THREE.Object3D) => child instanceof THREE.PointLight
-          );
-          lights.forEach((light: THREE.Object3D, index: number) => {
-            const pointLight = light as THREE.PointLight;
-            pointLight.intensity = (index === 0 ? 0.8 : 0.6) + Math.sin(time * 1.5 + index) * 0.2;
           });
         }
       }
@@ -416,6 +648,16 @@ export default function LibraryGraph({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
+  }, [config]);
+
+  // Page visibility API - pause when tab not visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      isVisibleRef.current = !document.hidden;
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
   const handleNodeHover = useCallback(
@@ -465,7 +707,6 @@ export default function LibraryGraph({
         onNodeClick(graphNode.book);
       }
 
-      // Smooth camera transition to node
       if (
         graphRef.current &&
         graphNode.x !== undefined &&
@@ -483,65 +724,52 @@ export default function LibraryGraph({
     [onNodeClick]
   );
 
+  // Setup scene with optimized lighting and particles
   useEffect(() => {
     if (graphRef.current) {
       graphRef.current.d3Force("charge")?.strength(-800);
       graphRef.current.d3Force("link")?.distance(150);
       graphRef.current.d3Force("center")?.strength(0.1);
 
-      // Add enhanced lighting to the scene
       const scene = graphRef.current.scene();
+      const camera = graphRef.current.camera();
+      cameraRef.current = camera;
+
       if (scene) {
-        // Clear existing lights
+        // Clear existing environment
         const existingLights = scene.children.filter(
           (child: THREE.Object3D) => child instanceof THREE.Light
         );
         existingLights.forEach((light: THREE.Object3D) => scene.remove(light));
 
-        // Ambient light for base illumination
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        const existingStars = scene.children.filter(
+          (child: THREE.Object3D) => child.name === "starfield" || child.name === "nebula"
+        );
+        existingStars.forEach((obj: THREE.Object3D) => scene.remove(obj));
+
+        // Simplified lighting setup
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
 
-        // Main directional light (key light)
-        const directionalLight1 = new THREE.DirectionalLight(0xa855f7, 1);
-        directionalLight1.position.set(100, 200, 100);
-        scene.add(directionalLight1);
+        if (config.lightCount >= 2) {
+          const directionalLight = new THREE.DirectionalLight(0xa855f7, 0.8);
+          directionalLight.position.set(100, 200, 100);
+          scene.add(directionalLight);
+        }
 
-        // Fill light (opposite side)
-        const directionalLight2 = new THREE.DirectionalLight(0x3b82f6, 0.6);
-        directionalLight2.position.set(-100, -50, -100);
-        scene.add(directionalLight2);
-
-        // Rim light (back)
-        const directionalLight3 = new THREE.DirectionalLight(0x06b6d4, 0.4);
-        directionalLight3.position.set(0, -100, -200);
-        scene.add(directionalLight3);
-
-        // Point lights for cosmic atmosphere
-        const pointLight1 = new THREE.PointLight(0x7c3aed, 0.8, 500);
-        pointLight1.position.set(200, 100, 0);
-        scene.add(pointLight1);
-
-        const pointLight2 = new THREE.PointLight(0xec4899, 0.6, 500);
-        pointLight2.position.set(-200, -100, 100);
-        scene.add(pointLight2);
-
-        // Add starfield background
+        // Optimized starfield
         const starsGeometry = new THREE.BufferGeometry();
-        const starCount = 3000;
-        const positions = new Float32Array(starCount * 3);
-        const colors = new Float32Array(starCount * 3);
-        const sizes = new Float32Array(starCount);
+        const positions = new Float32Array(config.starCount * 3);
+        const colors = new Float32Array(config.starCount * 3);
+        const sizes = new Float32Array(config.starCount);
 
         const starColors = [
           new THREE.Color(0xffffff),
           new THREE.Color(0xc4b5fd),
           new THREE.Color(0xa5b4fc),
-          new THREE.Color(0x818cf8),
-          new THREE.Color(0xfbc2eb),
         ];
 
-        for (let i = 0; i < starCount; i++) {
+        for (let i = 0; i < config.starCount; i++) {
           const i3 = i * 3;
           const radius = 1000 + Math.random() * 1000;
           const theta = Math.random() * Math.PI * 2;
@@ -556,7 +784,7 @@ export default function LibraryGraph({
           colors[i3 + 1] = color.g;
           colors[i3 + 2] = color.b;
 
-          sizes[i] = Math.random() * 2 + 0.5;
+          sizes[i] = Math.random() * 3 + 1;
         }
 
         starsGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -564,10 +792,10 @@ export default function LibraryGraph({
         starsGeometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
         const starsMaterial = new THREE.PointsMaterial({
-          size: 2,
+          size: 3,
           vertexColors: true,
           transparent: true,
-          opacity: 0.8,
+          opacity: 0.7,
           sizeAttenuation: true,
         });
 
@@ -575,21 +803,18 @@ export default function LibraryGraph({
         starField.name = "starfield";
         scene.add(starField);
 
-        // Add nebula effect using particles
+        // Optimized nebula
         const nebulaGeometry = new THREE.BufferGeometry();
-        const nebulaCount = 500;
-        const nebulaPositions = new Float32Array(nebulaCount * 3);
-        const nebulaColors = new Float32Array(nebulaCount * 3);
-        const nebulaSizes = new Float32Array(nebulaCount);
+        const nebulaPositions = new Float32Array(config.nebulaCount * 3);
+        const nebulaColors = new Float32Array(config.nebulaCount * 3);
 
         const nebulaColors1 = [
           new THREE.Color(0x7c3aed),
-          new THREE.Color(0xec4899),
           new THREE.Color(0x3b82f6),
           new THREE.Color(0x06b6d4),
         ];
 
-        for (let i = 0; i < nebulaCount; i++) {
+        for (let i = 0; i < config.nebulaCount; i++) {
           const i3 = i * 3;
           const radius = 500 + Math.random() * 800;
           const theta = Math.random() * Math.PI * 2;
@@ -603,19 +828,16 @@ export default function LibraryGraph({
           nebulaColors[i3] = color.r;
           nebulaColors[i3 + 1] = color.g;
           nebulaColors[i3 + 2] = color.b;
-
-          nebulaSizes[i] = Math.random() * 20 + 10;
         }
 
         nebulaGeometry.setAttribute("position", new THREE.BufferAttribute(nebulaPositions, 3));
         nebulaGeometry.setAttribute("color", new THREE.BufferAttribute(nebulaColors, 3));
-        nebulaGeometry.setAttribute("size", new THREE.BufferAttribute(nebulaSizes, 1));
 
         const nebulaMaterial = new THREE.PointsMaterial({
-          size: 30,
+          size: 25,
           vertexColors: true,
           transparent: true,
-          opacity: 0.15,
+          opacity: 0.12,
           sizeAttenuation: true,
           blending: THREE.AdditiveBlending,
         });
@@ -625,7 +847,20 @@ export default function LibraryGraph({
         scene.add(nebula);
       }
     }
-  }, [graphData]);
+  }, [graphData, config]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Dispose cached geometries
+      geometryCache.current.forEach((geometry) => geometry.dispose());
+      geometryCache.current.clear();
+
+      // Dispose cached materials
+      materialCache.current.forEach((material) => material.dispose());
+      materialCache.current.clear();
+    };
+  }, []);
 
   // Fullscreen handling
   const toggleFullscreen = useCallback(() => {
@@ -685,6 +920,13 @@ export default function LibraryGraph({
     `;
   }, []);
 
+  const cyclePerformanceMode = useCallback(() => {
+    const modes: PerformanceMode[] = ["auto", "low", "medium", "high"];
+    const currentIndex = modes.indexOf(performanceMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setPerformanceMode(modes[nextIndex]);
+  }, [performanceMode, setPerformanceMode]);
+
   return (
     <div
       ref={containerRef}
@@ -714,6 +956,19 @@ export default function LibraryGraph({
         controlType="orbit"
         d3VelocityDecay={0.3}
       />
+
+      {/* Performance mode toggle */}
+      <button
+        onClick={cyclePerformanceMode}
+        className="absolute top-4 left-4 z-10 px-4 py-2 rounded-lg bg-purple-900/80 backdrop-blur-md border border-purple-500/30 hover:bg-purple-800/80 transition-all duration-300 shadow-lg hover:shadow-purple-500/50 group flex items-center gap-2"
+        aria-label="Toggle performance mode"
+        title={`Performance: ${activeMode.toUpperCase()} (Click to cycle)`}
+      >
+        <Zap className="h-4 w-4 text-purple-200 group-hover:text-purple-100" />
+        <span className="text-sm text-purple-200 group-hover:text-purple-100">
+          {performanceMode === "auto" ? `Auto (${activeMode})` : activeMode.toUpperCase()}
+        </span>
+      </button>
 
       {/* Fullscreen button */}
       <button
