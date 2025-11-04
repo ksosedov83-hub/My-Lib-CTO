@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Menu, X, Sparkles } from "lucide-react";
 import classNames from "classnames";
 
@@ -44,12 +45,12 @@ export default function AppShell({ children }: AppShellProps) {
 
             <nav className="flex-1 overflow-y-auto p-4">
               <div className="space-y-2">
-                <a
+                <Link
                   href="/"
                   className="block px-4 py-2 rounded-lg text-purple-300 hover:bg-purple-500/10 transition-colors"
                 >
                   Главная
-                </a>
+                </Link>
                 <a
                   href="/library"
                   className="block px-4 py-2 rounded-lg text-purple-300 hover:bg-purple-500/10 transition-colors"

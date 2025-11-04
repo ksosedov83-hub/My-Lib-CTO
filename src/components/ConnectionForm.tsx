@@ -19,7 +19,11 @@ interface ConnectionFormProps {
 const CONNECTION_TYPES: { value: ConnectionType; label: string; description: string }[] = [
   { value: "influences", label: "Влияние", description: "Одна работа влияет на другую" },
   { value: "references", label: "Ссылка", description: "Прямые ссылки или цитирования" },
-  { value: "contradicts", label: "Противоречие", description: "Противоположные или конфликтующие идеи" },
+  {
+    value: "contradicts",
+    label: "Противоречие",
+    description: "Противоположные или конфликтующие идеи",
+  },
   { value: "expands", label: "Расширение", description: "Развивает или расширяет идеи" },
   {
     value: "similar-theme",
@@ -59,6 +63,8 @@ export default function ConnectionForm({
   const [notes, setNotes] = useState(connection?.notes || "");
   const [error, setError] = useState("");
 
+  // Synchronize form state when connection prop changes (editing mode)
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (connection) {
       setSourceId(connection.sourceId);
@@ -69,6 +75,7 @@ export default function ConnectionForm({
       setNotes(connection.notes || "");
     }
   }, [connection]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const checkDuplicate = (src: string, tgt: string): boolean => {
     if (!connection) {

@@ -11,13 +11,7 @@ interface DialogProps {
   maxWidth?: "sm" | "md" | "lg" | "xl";
 }
 
-export default function Dialog({
-  open,
-  onClose,
-  title,
-  children,
-  maxWidth = "md",
-}: DialogProps) {
+export default function Dialog({ open, onClose, title, children, maxWidth = "md" }: DialogProps) {
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
