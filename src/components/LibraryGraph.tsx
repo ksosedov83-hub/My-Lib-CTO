@@ -762,20 +762,31 @@ export default function LibraryGraph({
       // Configure orbit controls for better panning
       const controls = graphRef.current.controls();
       if (controls) {
+        console.log('🔧 Configuring OrbitControls for pan...');
+        
         // CRITICAL: Enable panning with right and middle mouse buttons
         controls.enablePan = true;
         controls.panSpeed = 1.0;
         controls.screenSpacePanning = true; // Pan in screen space (more intuitive)
         
-        // Set mouse button mappings using THREE.MOUSE constants
+        // КРИТИЧНО: Переназначить кнопки мыши
+        // Импортировать THREE если нужно: import * as THREE from 'three';
         controls.mouseButtons = {
           LEFT: THREE.MOUSE.ROTATE,    // 0 - left button for rotation
           MIDDLE: THREE.MOUSE.PAN,     // 1 - middle button for pan
-          RIGHT: THREE.MOUSE.PAN       // 2 - right button for pan
+          RIGHT: THREE.MOUSE.PAN       // 2 - right button for pan (было DOLLY!)
         };
         
         // Apply changes
         controls.update();
+        
+        console.log('✅ Pan enabled:', controls.enablePan);
+        console.log('✅ Pan speed:', controls.panSpeed);
+        console.log('✅ Screen space panning:', controls.screenSpacePanning);
+        console.log('✅ Mouse buttons:', controls.mouseButtons);
+        console.log('✅ Mouse buttons RIGHT:', controls.mouseButtons.RIGHT, '(should be 2 for PAN)');
+      } else {
+        console.error('❌ Controls not found!');
       }
 
       // Store initial camera position (only once)
