@@ -284,12 +284,21 @@ export default function LibraryGraph({
       const isSelected = selectedBookId === graphNode.id;
       const isHovered = hoveredNode?.id === graphNode.id;
 
-      const size = graphNode.val / 2 || 3;
+      // Calculate base size from node value
+      const baseSize = graphNode.val / 2 || 3;
       const color = new THREE.Color(graphNode.color);
 
+      // Determine if node is active (matches filter or no filter active)
+      const isFiltered = selectedThemes.length > 0;
+      const isActive = !isFiltered || matchesFilter;
+
+      // ✅ NEW: Active nodes are 1.8x larger for better visibility
+      const size = isActive && isFiltered ? baseSize * 1.8 : baseSize;
+
+      // ✅ NEW: Inactive nodes now 50% opacity (was 10%) - structure stays visible
       let opacity = highlightNodes.size === 0 || highlightNodes.has(graphNode.id) ? 1 : 0.3;
-      if (selectedThemes.length > 0) {
-        opacity = matchesFilter ? 1 : 0.1;
+      if (isFiltered) {
+        opacity = matchesFilter ? 1.0 : 0.5;
       }
 
       const lod = getNodeLOD(graphNode);
@@ -319,9 +328,17 @@ export default function LibraryGraph({
               opacity: opacity,
             })
         );
-        // CRITICAL: Always update opacity to current value (for filter changes)
+        // CRITICAL: Always update opacity and emissive properties for current state
         const lambertMat = material as THREE.MeshLambertMaterial;
         lambertMat.opacity = opacity;
+        // ✅ NEW: Brighter emissive for active nodes when filter is active
+        if (isActive && isFiltered) {
+          lambertMat.emissive = color;
+          lambertMat.emissiveIntensity = 0.3; // Increased from 0.2
+        } else {
+          lambertMat.emissive = color;
+          lambertMat.emissiveIntensity = 0.2;
+        }
         lambertMat.needsUpdate = true; // CRITICAL: Tell Three.js to re-render
       } else {
         const materialKey = `basic-${graphNode.color}`;
@@ -357,14 +374,20 @@ export default function LibraryGraph({
       // Halo only for high detail, if enabled, and for matching nodes when filter is active
       const enableHaloForNode = config.enableHalo && (selectedThemes.length === 0 || matchesFilter);
       if (enableHaloForNode && lod === "high") {
-        const haloSize = size * (isSelected ? 2.5 : isHovered ? 2.2 : 1.8);
+        // ✅ NEW: Larger halo for active nodes (2.0x vs 1.8x)
+        const baseHaloMultiplier = isActive && isFiltered ? 2.0 : 1.8;
+        const haloSize = size * (isSelected ? 2.5 : isHovered ? 2.2 : baseHaloMultiplier);
         const haloGeometryKey = `sphere-${haloSize.toFixed(1)}-8`;
         const haloGeometry = getCachedGeometry(
           haloGeometryKey,
           () => new THREE.SphereGeometry(haloSize, 8, 8)
         );
 
-        const haloOpacity = (isSelected || isHovered ? 0.3 : 0.15) * opacity;
+        // ✅ NEW: Brighter halo for active nodes (1.5x opacity boost)
+        const baseHaloOpacity = isSelected || isHovered ? 0.3 : 0.15;
+        const haloOpacityMultiplier = isActive && isFiltered ? 1.5 : 1.0;
+        const haloOpacity = baseHaloOpacity * haloOpacityMultiplier * opacity;
+
         const haloMaterialKey = `halo-${graphNode.color}`;
         const haloMaterial = getCachedMaterial(
           haloMaterialKey,
@@ -476,7 +499,8 @@ export default function LibraryGraph({
 
       let linkAlpha = isHighlighted ? 0.6 : 0.15;
       if (selectedThemes.length > 0) {
-        linkAlpha = bothMatch ? 0.6 : 0.05;
+        // ✅ NEW: Higher contrast for links - 80% between active, 30% to inactive
+        linkAlpha = bothMatch ? 0.8 : 0.3;
       }
 
       const start = new THREE.Vector3(sourceNode.x || 0, sourceNode.y || 0, sourceNode.z || 0);
