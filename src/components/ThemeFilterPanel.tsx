@@ -16,12 +16,20 @@ export default function ThemeFilterPanel({
   compact: _compact = false,
 }: ThemeFilterPanelProps) {
   const themes = useLibraryStore((state) => state.themes);
+  const books = useLibraryStore((state) => state.books);
   const selectedThemes = useAppStore((state) => state.selectedThemes);
   const toggleThemeFilter = useAppStore((state) => state.toggleThemeFilter);
   const clearThemeFilters = useAppStore((state) => state.clearThemeFilters);
   const setThemeFilters = useAppStore((state) => state.setThemeFilters);
 
   const allThemeNames = useMemo(() => themes.map((t) => t.name), [themes]);
+
+  const getBookCountForTheme = useCallback(
+    (themeName: string) => {
+      return books.filter((book) => book.themes.includes(themeName)).length;
+    },
+    [books]
+  );
 
   const handleSelectAll = useCallback(() => {
     setThemeFilters(allThemeNames);
@@ -51,6 +59,7 @@ export default function ThemeFilterPanel({
       <div className="flex flex-wrap gap-2 mb-3">
         {themes.map((theme) => {
           const isSelected = selectedThemes.includes(theme.name);
+          const bookCount = getBookCountForTheme(theme.name);
           return (
             <button
               key={theme.id}
@@ -65,7 +74,7 @@ export default function ThemeFilterPanel({
                 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-purple-950
               `}
               aria-pressed={isSelected}
-              aria-label={`${isSelected ? "Убрать" : "Добавить"} фильтр ${theme.name}`}
+              aria-label={`${isSelected ? "Убрать" : "Добавить"} фильтр ${theme.name} (${bookCount} книг)`}
             >
               <div
                 className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
@@ -96,6 +105,15 @@ export default function ThemeFilterPanel({
               >
                 {theme.name}
               </span>
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  isSelected
+                    ? "bg-purple-400/40 text-purple-100"
+                    : "bg-purple-500/20 text-purple-300"
+                }`}
+              >
+                {bookCount}
+              </span>
             </button>
           );
         })}
@@ -121,9 +139,10 @@ export default function ThemeFilterPanel({
         <Button
           onClick={clearThemeFilters}
           disabled={!hasSelection}
-          variant="secondary"
+          variant={hasSelection ? "primary" : "secondary"}
           size="sm"
           aria-label="Очистить все фильтры"
+          className={hasSelection ? "shadow-lg shadow-pink-500/20" : ""}
         >
           <X className="h-3 w-3" />
           Очистить фильтры
