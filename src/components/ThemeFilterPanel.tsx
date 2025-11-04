@@ -98,11 +98,7 @@ export default function ThemeFilterPanel({
                 style={{ backgroundColor: theme.color }}
                 aria-hidden="true"
               />
-              <span
-                className={`font-medium ${
-                  isSelected ? "text-purple-100" : "text-purple-200"
-                }`}
-              >
+              <span className={`font-medium ${isSelected ? "text-purple-100" : "text-purple-200"}`}>
                 {theme.name}
               </span>
               <span

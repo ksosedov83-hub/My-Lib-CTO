@@ -53,7 +53,7 @@ export default function GraphLegend({
           Легенда
         </h3>
       </div>
-      
+
       <div className="p-3 space-y-3">
         {showThemes && themes.length > 0 && (
           <div>
@@ -109,11 +109,15 @@ export default function GraphLegend({
                 <div className="w-4 h-4 rounded-full bg-purple-400 flex-shrink-0 flex items-center justify-center mt-0.5">
                   <span className="text-[8px] font-bold text-white">2+</span>
                 </div>
-                <span className="leading-tight">Значок на узле показывает несколько тем из выбранных фильтров</span>
+                <span className="leading-tight">
+                  Значок на узле показывает несколько тем из выбранных фильтров
+                </span>
               </div>
               <div className="flex items-start gap-2">
                 <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex-shrink-0 mt-0.5" />
-                <span className="leading-tight">Смешанные цвета указывают на книги с пересекающимися темами</span>
+                <span className="leading-tight">
+                  Смешанные цвета указывают на книги с пересекающимися темами
+                </span>
               </div>
               <div className="flex items-start gap-2">
                 <div className="w-4 h-4 rounded-full bg-purple-500/30 flex-shrink-0 mt-0.5" />
