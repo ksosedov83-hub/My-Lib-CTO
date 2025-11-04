@@ -6,7 +6,7 @@ import { useLibraryStore } from "@/stores/useLibraryStore";
 import { useAppStore, PerformanceMode } from "@/stores/useAppStore";
 import { Book, Connection, ConnectionType } from "@/types";
 import * as THREE from "three";
-import { Maximize2, Minimize2, Zap } from "lucide-react";
+import { Maximize2, Minimize2, Zap, Home } from "lucide-react";
 
 const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
   ssr: false,
@@ -152,6 +152,10 @@ export default function LibraryGraph({
   const frameCountRef = useRef<number>(0);
   const isVisibleRef = useRef<boolean>(true);
   const [detectedMode, setDetectedMode] = useState<Exclude<PerformanceMode, "auto">>("high");
+  
+  // Store initial camera position for reset
+  const initialCameraPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  const initialCameraLookAtRef = useRef<{ x: number; y: number; z: number } | null>(null);
 
   // Shared geometry and material cache for better performance
   const geometryCache = useRef<Map<string, THREE.BufferGeometry>>(new Map());
@@ -752,6 +756,17 @@ export default function LibraryGraph({
       const camera = graphRef.current.camera();
       cameraRef.current = camera;
 
+      // Store initial camera position (only once)
+      if (!initialCameraPositionRef.current && camera) {
+        initialCameraPositionRef.current = {
+          x: camera.position.x,
+          y: camera.position.y,
+          z: camera.position.z,
+        };
+        // Look at center by default
+        initialCameraLookAtRef.current = { x: 0, y: 0, z: 0 };
+      }
+
       if (scene) {
         // Clear existing environment
         const existingLights = scene.children.filter(
@@ -895,6 +910,21 @@ export default function LibraryGraph({
     }
   }, []);
 
+  // Camera reset function
+  const resetCamera = useCallback(() => {
+    if (graphRef.current && initialCameraPositionRef.current) {
+      const pos = initialCameraPositionRef.current;
+      const lookAt = initialCameraLookAtRef.current || { x: 0, y: 0, z: 0 };
+      
+      // Smooth transition to initial position
+      graphRef.current.cameraPosition(
+        pos,
+        lookAt,
+        1500 // 1.5 second transition
+      );
+    }
+  }, []);
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -906,6 +936,10 @@ export default function LibraryGraph({
           toggleFullscreen();
         }
       }
+      // H or Home key to reset camera
+      if (e.key === "h" || e.key === "H" || e.key === "Home") {
+        resetCamera();
+      }
     };
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
@@ -915,7 +949,7 @@ export default function LibraryGraph({
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("keydown", handleKeyPress);
     };
-  }, [toggleFullscreen]);
+  }, [toggleFullscreen, resetCamera]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nodeLabel = useCallback((node: any) => {
@@ -988,6 +1022,16 @@ export default function LibraryGraph({
         <span className="text-sm text-purple-200 group-hover:text-purple-100">
           {performanceMode === "auto" ? `Auto (${activeMode})` : activeMode.toUpperCase()}
         </span>
+      </button>
+
+      {/* Camera reset button */}
+      <button
+        onClick={resetCamera}
+        className="absolute top-4 right-16 z-10 p-3 rounded-lg bg-purple-900/80 backdrop-blur-md border border-purple-500/30 hover:bg-purple-800/80 transition-all duration-300 shadow-lg hover:shadow-purple-500/50 group"
+        aria-label="Вернуться в исходное положение"
+        title="Вернуться в исходное положение (H или Home)"
+      >
+        <Home className="h-5 w-5 text-purple-200 group-hover:text-purple-100" />
       </button>
 
       {/* Fullscreen button */}
