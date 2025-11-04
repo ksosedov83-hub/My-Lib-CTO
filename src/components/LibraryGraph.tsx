@@ -762,6 +762,8 @@ export default function LibraryGraph({
       // Configure orbit controls for better panning
       const controls = graphRef.current.controls();
       if (controls) {
+        console.log('🔧 Configuring OrbitControls for pan...');
+        
         // CRITICAL: Enable panning with right and middle mouse buttons
         controls.enablePan = true;
         controls.panSpeed = 1.0;
@@ -776,6 +778,13 @@ export default function LibraryGraph({
         
         // Apply changes
         controls.update();
+        
+        console.log('✅ Pan enabled:', controls.enablePan);
+        console.log('✅ Pan speed:', controls.panSpeed);
+        console.log('✅ Screen space panning:', controls.screenSpacePanning);
+        console.log('✅ Mouse buttons:', controls.mouseButtons);
+      } else {
+        console.error('❌ Controls not found!');
       }
 
       // Store initial camera position (only once)
@@ -957,23 +966,44 @@ export default function LibraryGraph({
 
   focusOnFilteredNodesRef.current = useCallback(
     (filteredNodeIds: string[], retryCount: number = 0) => {
-      console.log('🎯 focusOnFilteredNodes called with IDs:', filteredNodeIds, 'retry:', retryCount);
+      console.log('🎯 focusOnFilteredNodes called with IDs:', filteredNodeIds);
+      console.log('🔄 Retry count:', retryCount);
       
-      if (!graphRef.current || filteredNodeIds.length === 0) {
-        console.log('❌ Early return: no graph or no IDs');
+      if (!graphRef.current) {
+        console.error('❌ Graph ref not available');
+        return;
+      }
+      
+      if (filteredNodeIds.length === 0) {
+        console.log('⚠️ No filtered books, returning to home position');
+        // Return to initial position when no filters
+        if (initialCameraPositionRef.current) {
+          const pos = initialCameraPositionRef.current;
+          const lookAt = initialCameraLookAtRef.current || { x: 0, y: 0, z: 0 };
+          graphRef.current.cameraPosition(pos, lookAt, 1800);
+          console.log('🏠 Returned to initial camera position');
+        }
         return;
       }
 
-      // Get filtered nodes with positions
-      const filteredNodes = graphData.nodes.filter(
-        (n) => filteredNodeIds.includes(n.id) && n.x !== undefined && n.y !== undefined && n.z !== undefined
-      );
+      // Get graph data
+      const graphData = graphRef.current.graphData();
+      console.log('📊 Total nodes in graph:', graphData.nodes.length);
 
-      console.log('📍 Filtered nodes with coordinates:', filteredNodes.length, '/', filteredNodeIds.length);
+      // Get filtered nodes with positions
+      const filteredNodes = graphData.nodes.filter((node: any) => {
+        const hasId = filteredNodeIds.includes(node.id);
+        const hasCoords = typeof node.x === 'number' && 
+                          typeof node.y === 'number' && 
+                          typeof node.z === 'number';
+        return hasId && hasCoords;
+      });
+
+      console.log('✅ Filtered nodes with coordinates:', filteredNodes.length, '/', filteredNodeIds.length);
 
       // If positions aren't ready yet, retry up to 5 times
       if (filteredNodes.length === 0 && retryCount < 5) {
-        console.log('⏳ No coordinates yet, retrying in 500ms...');
+        console.log('⏳ Nodes don\'t have coordinates yet, retrying in 500ms...');
         setTimeout(() => {
           focusOnFilteredNodesRef.current(filteredNodeIds, retryCount + 1);
         }, 500);
@@ -981,14 +1011,14 @@ export default function LibraryGraph({
       }
 
       if (filteredNodes.length === 0) {
-        console.log('❌ No nodes with coordinates after retries');
+        console.error('❌ No nodes with coordinates after', retryCount, 'retries');
         return;
       }
 
       // Calculate bounding box
-      const xs = filteredNodes.map((n) => n.x!);
-      const ys = filteredNodes.map((n) => n.y!);
-      const zs = filteredNodes.map((n) => n.z!);
+      const xs = filteredNodes.map((n: any) => n.x);
+      const ys = filteredNodes.map((n: any) => n.y);
+      const zs = filteredNodes.map((n: any) => n.z);
 
       const minX = Math.min(...xs);
       const maxX = Math.max(...xs);
@@ -1001,33 +1031,63 @@ export default function LibraryGraph({
       const centerY = (minY + maxY) / 2;
       const centerZ = (minZ + maxZ) / 2;
 
-      console.log('📐 Center position:', { x: centerX, y: centerY, z: centerZ });
+      console.log('📍 Center position:', { x: centerX.toFixed(2), y: centerY.toFixed(2), z: centerZ.toFixed(2) });
 
-      const sizeX = maxX - minX;
-      const sizeY = maxY - minY;
-      const sizeZ = maxZ - minZ;
-      const maxDim = Math.max(sizeX, sizeY, sizeZ, 50); // Minimum size of 50 for single nodes
+      const sizeX = maxX - minX || 100; // fallback for single point
+      const sizeY = maxY - minY || 100;
+      const sizeZ = maxZ - minZ || 100;
+      const maxDim = Math.max(sizeX, sizeY, sizeZ);
 
-      console.log('📏 Bounding box size:', { sizeX, sizeY, sizeZ, maxDim });
+      console.log('📏 Bounding box size:', { 
+        sizeX: sizeX.toFixed(2), 
+        sizeY: sizeY.toFixed(2), 
+        sizeZ: sizeZ.toFixed(2), 
+        maxDim: maxDim.toFixed(2) 
+      });
 
-      // Calculate camera distance with padding
-      const fov = 75; // field of view
-      const paddingFactor = 2.0; // Increased padding for better visibility
-      const cameraDistance =
-        ((maxDim / 2) / Math.tan((fov / 2) * (Math.PI / 180))) * paddingFactor;
+      // Calculate camera distance with increased padding
+      const fov = 75; // field of view in react-force-graph-3d
+      const fovRad = (fov / 2) * (Math.PI / 180);
+      const baseDistance = (maxDim / 2) / Math.tan(fovRad);
+      const paddingFactor = 2.5; // Increased padding for comfortable viewing
+      const paddedDistance = baseDistance * paddingFactor;
 
-      console.log('📷 Camera distance:', cameraDistance);
+      console.log('📷 Camera distance:', paddedDistance.toFixed(2));
+
+      // New camera position and look-at point
+      const newCameraPos = {
+        x: centerX,
+        y: centerY,
+        z: centerZ + paddedDistance
+      };
+
+      const lookAtPos = {
+        x: centerX,
+        y: centerY,
+        z: centerZ
+      };
+
+      console.log('🎥 Moving camera to:', {
+        x: newCameraPos.x.toFixed(2),
+        y: newCameraPos.y.toFixed(2),
+        z: newCameraPos.z.toFixed(2)
+      });
+      console.log('👀 Looking at:', {
+        x: lookAtPos.x.toFixed(2),
+        y: lookAtPos.y.toFixed(2),
+        z: lookAtPos.z.toFixed(2)
+      });
 
       // Smooth transition to the filtered nodes
       graphRef.current.cameraPosition(
-        { x: centerX, y: centerY, z: centerZ + cameraDistance },
-        { x: centerX, y: centerY, z: centerZ },
+        newCameraPos,
+        lookAtPos,
         1800 // 1.8 second transition
       );
 
-      console.log('✅ Camera moved to filtered nodes!');
+      console.log('✨ Camera animation started!');
     },
-    [graphData]
+    []
   );
 
   // Trigger autofocus when filter changes
@@ -1041,9 +1101,12 @@ export default function LibraryGraph({
         .map((n) => n.id);
 
       console.log('📚 Filtered book IDs:', filteredIds);
+      console.log('📚 Number of filtered books:', filteredIds.length);
 
       // Small delay to let the force simulation stabilize
+      console.log('⏰ Starting 800ms delay before autofocus...');
       setTimeout(() => {
+        console.log('✅ Delay complete, calling focusOnFilteredNodes...');
         focusOnFilteredNodesRef.current(filteredIds);
       }, 800);
     } else {
