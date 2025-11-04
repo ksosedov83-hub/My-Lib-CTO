@@ -48,15 +48,18 @@ interface LibraryGraphProps {
   className?: string;
 }
 
-const CONNECTION_COLORS: Record<ConnectionType, string> = {
-  influences: "#7c3aed",
-  references: "#3b82f6",
-  contradicts: "#ec4899",
-  expands: "#06b6d4",
-  "similar-theme": "#a855f7",
-  chronological: "#f59e0b",
-  "author-connection": "#10b981",
-  custom: "#6b7280",
+// Unified neutral color for all connections
+const UNIFIED_CONNECTION_COLOR = "#8b9dc3";
+
+const CONNECTION_TYPE_NAMES: Record<ConnectionType, string> = {
+  influences: "Влияние",
+  references: "Ссылка",
+  contradicts: "Противоречит",
+  expands: "Расширяет",
+  "similar-theme": "Схожая тема",
+  chronological: "Хронология",
+  "author-connection": "Связь автора",
+  custom: "Пользовательская",
 };
 
 // Performance configuration based on mode
@@ -152,7 +155,7 @@ export default function LibraryGraph({
   const frameCountRef = useRef<number>(0);
   const isVisibleRef = useRef<boolean>(true);
   const [detectedMode, setDetectedMode] = useState<Exclude<PerformanceMode, "auto">>("high");
-  
+
   // Store initial camera position for reset
   const initialCameraPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
   const initialCameraLookAtRef = useRef<{ x: number; y: number; z: number } | null>(null);
@@ -230,7 +233,7 @@ export default function LibraryGraph({
       type: conn.type,
       strength: conn.strength,
       label: conn.label,
-      color: CONNECTION_COLORS[conn.type],
+      color: UNIFIED_CONNECTION_COLOR,
       width: Math.max(0.5, conn.strength * 1.5),
       connection: conn,
     }));
@@ -756,6 +759,20 @@ export default function LibraryGraph({
       const camera = graphRef.current.camera();
       cameraRef.current = camera;
 
+      // Configure orbit controls for better panning
+      const controls = graphRef.current.controls();
+      if (controls) {
+        // Enable panning with right mouse button (already default)
+        // Also enable panning with middle mouse button
+        controls.mouseButtons = {
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.PAN,
+          RIGHT: THREE.MOUSE.PAN,
+        };
+        controls.enablePan = true;
+        controls.panSpeed = 1.0;
+      }
+
       // Store initial camera position (only once)
       if (!initialCameraPositionRef.current && camera) {
         initialCameraPositionRef.current = {
@@ -915,7 +932,7 @@ export default function LibraryGraph({
     if (graphRef.current && initialCameraPositionRef.current) {
       const pos = initialCameraPositionRef.current;
       const lookAt = initialCameraLookAtRef.current || { x: 0, y: 0, z: 0 };
-      
+
       // Smooth transition to initial position
       graphRef.current.cameraPosition(
         pos,
@@ -974,6 +991,43 @@ export default function LibraryGraph({
     `;
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const linkLabel = useCallback((link: any) => {
+    const graphLink = link as GraphLink;
+    const sourceNode = graphLink.source as GraphNode;
+    const targetNode = graphLink.target as GraphNode;
+
+    const typeName = CONNECTION_TYPE_NAMES[graphLink.type] || graphLink.type;
+    const sourceTitle = typeof sourceNode === "object" ? sourceNode.name : sourceNode;
+    const targetTitle = typeof targetNode === "object" ? targetNode.name : targetNode;
+
+    return `
+      <div style="
+        background: rgba(10, 1, 24, 0.95);
+        border: 1px solid rgba(139, 157, 195, 0.5);
+        border-radius: 8px;
+        padding: 12px;
+        color: #e0e7ff;
+        font-family: Inter, sans-serif;
+        font-size: 13px;
+        max-width: 280px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      ">
+        <div style="font-weight: 600; margin-bottom: 6px; color: #c4b5fd; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Связь</div>
+        <div style="margin-bottom: 8px;">
+          <div style="font-size: 12px; color: #a5b4fc;">Тип: <span style="color: #8b9dc3; font-weight: 500;">${typeName}</span></div>
+          <div style="font-size: 12px; color: #a5b4fc;">Сила: <span style="color: #8b9dc3; font-weight: 500;">${graphLink.strength}/10</span></div>
+        </div>
+        ${graphLink.label ? `<div style="font-size: 11px; color: #818cf8; margin-bottom: 8px; font-style: italic;">"${graphLink.label}"</div>` : ""}
+        <div style="border-top: 1px solid rgba(139, 157, 195, 0.3); padding-top: 8px; margin-top: 8px;">
+          <div style="font-size: 11px; color: #a5b4fc; margin-bottom: 4px;">${sourceTitle}</div>
+          <div style="font-size: 10px; color: #818cf8; text-align: center; margin: 4px 0;">↓</div>
+          <div style="font-size: 11px; color: #a5b4fc;">${targetTitle}</div>
+        </div>
+      </div>
+    `;
+  }, []);
+
   const cyclePerformanceMode = useCallback(() => {
     const modes: PerformanceMode[] = ["auto", "low", "medium", "high"];
     const currentIndex = modes.indexOf(performanceMode);
@@ -997,6 +1051,7 @@ export default function LibraryGraph({
         ref={graphRef}
         graphData={graphData}
         nodeLabel={nodeLabel}
+        linkLabel={linkLabel}
         nodeThreeObject={createNodeObject}
         nodeThreeObjectExtend={false}
         linkThreeObject={createLinkObject}

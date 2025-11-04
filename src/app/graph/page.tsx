@@ -5,36 +5,26 @@ import AppShell from "@/components/AppShell";
 import LibraryGraph from "@/components/LibraryGraph";
 import ConnectionManagementPanel from "@/components/ConnectionManagementPanel";
 import ThemeFilterPanel from "@/components/ThemeFilterPanel";
-import GraphLegend from "@/components/GraphLegend";
 import { useAppStore } from "@/stores/useAppStore";
 import { Book } from "@/types";
-import { X, BookOpen, Calendar, Tag, Link2, Filter, Eye } from "lucide-react";
+import { X, BookOpen, Calendar, Tag, Link2, Filter } from "lucide-react";
 import Button from "@/components/ui/Button";
 
 export default function GraphPage() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [showConnectionsPanel, setShowConnectionsPanel] = useState(false);
-  const [showFilterPanel, setShowFilterPanel] = useState(true);
-  const [showLegend, setShowLegend] = useState(true);
+  const [showFilterPanel, setShowFilterPanel] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const saved = localStorage.getItem("showFilterPanel");
+    return saved !== null ? saved === "true" : true;
+  });
 
   const selectedThemes = useAppStore((state) => state.selectedThemes);
-
-  // Load panel states from localStorage
-  useEffect(() => {
-    const savedFilterPanel = localStorage.getItem("showFilterPanel");
-    const savedLegend = localStorage.getItem("showLegend");
-    if (savedFilterPanel !== null) setShowFilterPanel(savedFilterPanel === "true");
-    if (savedLegend !== null) setShowLegend(savedLegend === "true");
-  }, []);
 
   // Save panel states to localStorage
   useEffect(() => {
     localStorage.setItem("showFilterPanel", String(showFilterPanel));
   }, [showFilterPanel]);
-
-  useEffect(() => {
-    localStorage.setItem("showLegend", String(showLegend));
-  }, [showLegend]);
 
   const handleNodeClick = useCallback((book: Book) => {
     setSelectedBook(book);
@@ -66,14 +56,6 @@ export default function GraphPage() {
               <Filter className="h-3 w-3" />
               {showFilterPanel ? "Скрыть" : "Показать"} фильтры
             </Button>
-            <Button
-              onClick={() => setShowLegend(!showLegend)}
-              variant={showLegend ? "primary" : "secondary"}
-              size="sm"
-            >
-              <Eye className="h-3 w-3" />
-              {showLegend ? "Скрыть" : "Показать"} легенду
-            </Button>
             <Button onClick={() => setShowConnectionsPanel(true)} size="sm">
               <Link2 className="h-3 w-3" />
               Связи
@@ -94,21 +76,10 @@ export default function GraphPage() {
             className="w-full h-full"
           />
 
-          {showLegend && (
-            <div className="absolute top-2 right-2 w-64 hidden lg:block animate-in fade-in slide-in-from-right-2 duration-300">
-              <GraphLegend />
-            </div>
-          )}
-
-          {showLegend && (
-            <div className="absolute bottom-2 left-2 right-2 lg:hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <GraphLegend />
-            </div>
-          )}
-
           <div className="absolute bottom-2 right-2 md:bottom-auto md:top-16 md:left-2 max-w-[200px] md:max-w-xs hidden md:block">
             <div className="text-xs text-purple-300/60 bg-purple-900/70 backdrop-blur-md border border-purple-500/20 rounded px-2 py-1">
-              <span className="font-medium">Управление:</span> F - полный экран • H - домой
+              <span className="font-medium">Управление:</span> F - полный экран • H - домой • ПКМ -
+              переместить
             </div>
           </div>
         </div>
