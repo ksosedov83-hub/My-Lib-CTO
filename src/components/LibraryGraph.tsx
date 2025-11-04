@@ -307,7 +307,7 @@ export default function LibraryGraph({
       let material: THREE.Material;
       const enableGlowForNode = config.enableGlow && (selectedThemes.length === 0 || matchesFilter);
       if (lod === "high" && enableGlowForNode) {
-        const materialKey = `phong-${graphNode.color}-${opacity.toFixed(2)}`;
+        const materialKey = `phong-${graphNode.color}`;
         material = getCachedMaterial(
           materialKey,
           () =>
@@ -319,8 +319,10 @@ export default function LibraryGraph({
               opacity: opacity,
             })
         );
+        // CRITICAL: Always update opacity to current value (for filter changes)
+        (material as THREE.MeshLambertMaterial).opacity = opacity;
       } else {
-        const materialKey = `basic-${graphNode.color}-${opacity.toFixed(2)}`;
+        const materialKey = `basic-${graphNode.color}`;
         material = getCachedMaterial(
           materialKey,
           () =>
@@ -330,6 +332,8 @@ export default function LibraryGraph({
               opacity: opacity,
             })
         );
+        // CRITICAL: Always update opacity to current value (for filter changes)
+        (material as THREE.MeshBasicMaterial).opacity = opacity;
       }
 
       const sphere = new THREE.Mesh(geometry, material);
@@ -356,17 +360,20 @@ export default function LibraryGraph({
           () => new THREE.SphereGeometry(haloSize, 8, 8)
         );
 
-        const haloMaterialKey = `halo-${graphNode.color}-${opacity.toFixed(2)}`;
+        const haloOpacity = (isSelected || isHovered ? 0.3 : 0.15) * opacity;
+        const haloMaterialKey = `halo-${graphNode.color}`;
         const haloMaterial = getCachedMaterial(
           haloMaterialKey,
           () =>
             new THREE.MeshBasicMaterial({
               color: color,
               transparent: true,
-              opacity: (isSelected || isHovered ? 0.3 : 0.15) * opacity,
+              opacity: haloOpacity,
               side: THREE.BackSide,
             })
         );
+        // CRITICAL: Always update opacity to current value (for filter changes)
+        (haloMaterial as THREE.MeshBasicMaterial).opacity = haloOpacity;
 
         const halo = new THREE.Mesh(haloGeometry, haloMaterial);
         group.add(halo);
