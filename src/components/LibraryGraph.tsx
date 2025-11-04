@@ -762,8 +762,7 @@ export default function LibraryGraph({
       // Configure orbit controls for better panning
       const controls = graphRef.current.controls();
       if (controls) {
-        // Enable panning with right mouse button (already default)
-        // Also enable panning with middle mouse button
+        // Enable panning with right and middle mouse buttons
         controls.mouseButtons = {
           LEFT: THREE.MOUSE.ROTATE,
           MIDDLE: THREE.MOUSE.PAN,
@@ -771,6 +770,7 @@ export default function LibraryGraph({
         };
         controls.enablePan = true;
         controls.panSpeed = 1.0;
+        controls.screenSpacePanning = true; // Pan in screen space (more intuitive)
       }
 
       // Store initial camera position (only once)
@@ -942,6 +942,85 @@ export default function LibraryGraph({
     }
   }, []);
 
+  // Autofocus function - using useRef to avoid circular dependency
+  const focusOnFilteredNodesRef = useRef<(filteredNodeIds: string[], retryCount?: number) => void>(
+    () => {}
+  );
+
+  focusOnFilteredNodesRef.current = useCallback(
+    (filteredNodeIds: string[], retryCount: number = 0) => {
+      if (!graphRef.current || filteredNodeIds.length === 0) return;
+
+      // Get filtered nodes with positions
+      const filteredNodes = graphData.nodes.filter(
+        (n) => filteredNodeIds.includes(n.id) && n.x !== undefined && n.y !== undefined && n.z !== undefined
+      );
+
+      // If positions aren't ready yet, retry up to 5 times
+      if (filteredNodes.length === 0 && retryCount < 5) {
+        setTimeout(() => {
+          focusOnFilteredNodesRef.current(filteredNodeIds, retryCount + 1);
+        }, 500);
+        return;
+      }
+
+      if (filteredNodes.length === 0) return;
+
+      // Calculate bounding box
+      const xs = filteredNodes.map((n) => n.x!);
+      const ys = filteredNodes.map((n) => n.y!);
+      const zs = filteredNodes.map((n) => n.z!);
+
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      const minZ = Math.min(...zs);
+      const maxZ = Math.max(...zs);
+
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const centerZ = (minZ + maxZ) / 2;
+
+      const sizeX = maxX - minX;
+      const sizeY = maxY - minY;
+      const sizeZ = maxZ - minZ;
+      const maxDim = Math.max(sizeX, sizeY, sizeZ);
+
+      // Calculate camera distance with padding
+      const fov = 75; // field of view
+      const paddingFactor = 1.8;
+      const cameraDistance =
+        ((maxDim / 2) / Math.tan((fov / 2) * (Math.PI / 180))) * paddingFactor;
+
+      // Smooth transition to the filtered nodes
+      graphRef.current.cameraPosition(
+        { x: centerX, y: centerY, z: centerZ + cameraDistance },
+        { x: centerX, y: centerY, z: centerZ },
+        1800 // 1.8 second transition
+      );
+    },
+    [graphData]
+  );
+
+  // Trigger autofocus when filter changes
+  useEffect(() => {
+    if (selectedThemes.length > 0) {
+      // Get IDs of filtered nodes
+      const filteredIds = graphData.nodes
+        .filter((node) => node.themes.some((t) => selectedThemes.includes(t)))
+        .map((n) => n.id);
+
+      // Small delay to let the force simulation stabilize
+      setTimeout(() => {
+        focusOnFilteredNodesRef.current(filteredIds);
+      }, 800);
+    } else {
+      // Return to initial view when filter is cleared
+      resetCamera();
+    }
+  }, [selectedThemes, graphData.nodes, resetCamera]);
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -1038,7 +1117,7 @@ export default function LibraryGraph({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full h-full overflow-hidden rounded-xl ${className}`}
+      className={`relative w-full h-full overflow-hidden rounded-xl cursor-grab active:cursor-grabbing ${className}`}
       role="img"
       aria-label="Interactive 3D library knowledge graph showing books and their connections"
     >
@@ -1079,6 +1158,25 @@ export default function LibraryGraph({
         </span>
       </button>
 
+      {/* Filter indicator */}
+      {selectedThemes.length > 0 && (
+        <div
+          className="absolute top-16 left-4 z-10 px-4 py-2 rounded-lg bg-purple-900/80 backdrop-blur-md border border-purple-500/30 shadow-lg animate-in fade-in duration-300"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="text-sm text-purple-200">
+            Показано:{" "}
+            <span className="font-semibold text-purple-100">
+              {graphData.nodes.filter((node) =>
+                node.themes.some((t) => selectedThemes.includes(t))
+              ).length}
+            </span>{" "}
+            из {graphData.nodes.length} книг
+          </span>
+        </div>
+      )}
+
       {/* Camera reset button */}
       <button
         onClick={resetCamera}
@@ -1103,10 +1201,29 @@ export default function LibraryGraph({
         )}
       </button>
 
+      {/* 3D Controls hint */}
+      <div
+        className="absolute bottom-4 left-4 z-10 px-3 py-2 rounded-lg bg-purple-900/70 backdrop-blur-md border border-purple-500/20 shadow-lg"
+        role="region"
+        aria-label="3D navigation controls"
+      >
+        <div className="flex flex-col gap-0.5 text-xs text-purple-200">
+          <div>
+            <span className="font-semibold text-purple-100">ЛКМ</span> - вращать
+          </div>
+          <div>
+            <span className="font-semibold text-purple-100">ПКМ/СКМ</span> - переместить
+          </div>
+          <div>
+            <span className="font-semibold text-purple-100">Колёсико</span> - зум
+          </div>
+        </div>
+      </div>
+
       {/* Info card for hovered node */}
       {hoveredNode && (
         <div
-          className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-gradient-to-br from-purple-900/90 to-blue-900/90 backdrop-blur-xl border border-purple-500/30 rounded-lg p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300"
+          className="absolute bottom-4 right-4 w-80 bg-gradient-to-br from-purple-900/90 to-blue-900/90 backdrop-blur-xl border border-purple-500/30 rounded-lg p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300"
           role="status"
           aria-live="polite"
         >
