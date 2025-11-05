@@ -284,12 +284,14 @@ export default function LibraryGraph({
       const isSelected = selectedBookId === graphNode.id;
       const isHovered = hoveredNode?.id === graphNode.id;
 
-      const size = graphNode.val / 2 || 3;
+      const baseSize = graphNode.val / 2 || 3;
+      const isActiveNode = selectedThemes.length === 0 || matchesFilter;
+      const size = isActiveNode ? baseSize * 1.5 : baseSize;
       const color = new THREE.Color(graphNode.color);
 
       let opacity = highlightNodes.size === 0 || highlightNodes.has(graphNode.id) ? 1 : 0.3;
       if (selectedThemes.length > 0) {
-        opacity = matchesFilter ? 1 : 0.1;
+        opacity = matchesFilter ? 1 : 0.4;
       }
 
       const lod = getNodeLOD(graphNode);
@@ -476,7 +478,7 @@ export default function LibraryGraph({
 
       let linkAlpha = isHighlighted ? 0.6 : 0.15;
       if (selectedThemes.length > 0) {
-        linkAlpha = bothMatch ? 0.6 : 0.05;
+        linkAlpha = bothMatch ? 0.7 : 0.2;
       }
 
       const start = new THREE.Vector3(sourceNode.x || 0, sourceNode.y || 0, sourceNode.z || 0);
