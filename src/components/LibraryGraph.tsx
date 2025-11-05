@@ -132,7 +132,7 @@ export default function LibraryGraph({
   onNodeHover,
   selectedBookId,
   highlightedBookIds: _highlightedBookIds = [],
-  selectedThemes = [],
+  selectedThemes: _selectedThemes = [],
   className = "",
 }: LibraryGraphProps) {
   const books = useLibraryStore((state) => state.books);
@@ -140,6 +140,9 @@ export default function LibraryGraph({
   const themes = useLibraryStore((state) => state.themes);
   const performanceMode = useAppStore((state) => state.performanceMode);
   const setPerformanceMode = useAppStore((state) => state.setPerformanceMode);
+
+  // Get selectedThemes from store (primary source of truth for filtering)
+  const selectedThemes = useAppStore((state) => state.selectedThemes);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null);
@@ -1207,6 +1210,88 @@ export default function LibraryGraph({
     setPerformanceMode(modes[nextIndex]);
   }, [performanceMode, setPerformanceMode]);
 
+  // Function for node size (reacts to filter)
+
+  const getNodeVal = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (node: any) => {
+      const graphNode = node as GraphNode;
+      const baseSize =
+        5 +
+        (graphData.nodes.indexOf(graphNode) >= 0
+          ? connections.filter((c) => c.sourceId === graphNode.id || c.targetId === graphNode.id)
+              .length
+          : 0) *
+          0.5;
+
+      // Check if filter is active and node matches
+      const isFiltered = selectedThemes.length > 0;
+      const matchesFilter = graphNode.themes.some((theme: string) =>
+        selectedThemes.includes(theme)
+      );
+
+      // Active nodes are 1.5x larger
+      const isActive = !isFiltered || matchesFilter;
+      return isActive ? baseSize * 1.5 : baseSize;
+    },
+    [selectedThemes, graphData.nodes, connections]
+  );
+
+  // Function for node color with transparency for filtering
+  const getNodeColor = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (node: any) => {
+      const graphNode = node as GraphNode;
+      // Check if filter is active and node matches
+      const isFiltered = selectedThemes.length > 0;
+      const matchesFilter = graphNode.themes.some((theme: string) =>
+        selectedThemes.includes(theme)
+      );
+
+      // Active: 100% opacity, Inactive: 40% opacity
+      const opacity = !isFiltered || matchesFilter ? 1.0 : 0.4;
+
+      // Convert HEX color to RGBA with transparency
+      const hexColor = graphNode.color;
+      const r = parseInt(hexColor.slice(1, 3), 16);
+      const g = parseInt(hexColor.slice(3, 5), 16);
+      const b = parseInt(hexColor.slice(5, 7), 16);
+
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    },
+    [selectedThemes]
+  );
+
+  // Function for link color with transparency for filtering
+  const getLinkColor = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (link: any) => {
+      const isFiltered = selectedThemes.length > 0;
+
+      const sourceNode = link.source as GraphNode;
+      const targetNode = link.target as GraphNode;
+
+      const sourceActive =
+        !isFiltered || sourceNode.themes?.some((t: string) => selectedThemes.includes(t));
+      const targetActive =
+        !isFiltered || targetNode.themes?.some((t: string) => selectedThemes.includes(t));
+
+      const bothActive = sourceActive && targetActive;
+
+      // Both active: 70% opacity, at least one inactive: 20% opacity
+      const opacity = bothActive ? 0.7 : 0.2;
+
+      // Neutral cosmic connection color
+      const baseColor = "#8b9dc3";
+      const r = parseInt(baseColor.slice(1, 3), 16);
+      const g = parseInt(baseColor.slice(3, 5), 16);
+      const b = parseInt(baseColor.slice(5, 7), 16);
+
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    },
+    [selectedThemes]
+  );
+
   return (
     <div
       ref={containerRef}
@@ -1228,6 +1313,9 @@ export default function LibraryGraph({
         nodeThreeObjectExtend={false}
         linkThreeObject={createLinkObject}
         linkThreeObjectExtend={false}
+        nodeVal={getNodeVal}
+        nodeColor={getNodeColor}
+        linkColor={getLinkColor}
         onNodeClick={handleNodeClick}
         onNodeHover={handleNodeHover}
         enableNodeDrag={true}
