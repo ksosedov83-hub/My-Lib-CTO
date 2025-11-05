@@ -309,31 +309,22 @@ export default function LibraryGraph({
       );
 
       // Choose material based on LOD and config
+      // ✅ DON'T cache materials - create new ones with correct opacity each time
       let material: THREE.Material;
       if (lod === "high" && config.enableGlow) {
-        const materialKey = `phong-${graphNode.color}`;
-        material = getCachedMaterial(
-          materialKey,
-          () =>
-            new THREE.MeshLambertMaterial({
-              color: color,
-              emissive: color,
-              emissiveIntensity: 0.2,
-              transparent: true,
-              opacity: opacity,
-            })
-        );
+        material = new THREE.MeshLambertMaterial({
+          color: color,
+          emissive: color,
+          emissiveIntensity: 0.2,
+          transparent: true,
+          opacity: opacity,
+        });
       } else {
-        const materialKey = `basic-${graphNode.color}`;
-        material = getCachedMaterial(
-          materialKey,
-          () =>
-            new THREE.MeshBasicMaterial({
-              color: color,
-              transparent: true,
-              opacity: opacity,
-            })
-        );
+        material = new THREE.MeshBasicMaterial({
+          color: color,
+          transparent: true,
+          opacity: opacity,
+        });
       }
 
       const sphere = new THREE.Mesh(geometry, material);
@@ -360,17 +351,13 @@ export default function LibraryGraph({
         );
 
         const haloOpacity = (isSelected || isHovered ? 0.3 : 0.15) * opacity;
-        const haloMaterialKey = `halo-${graphNode.color}`;
-        const haloMaterial = getCachedMaterial(
-          haloMaterialKey,
-          () =>
-            new THREE.MeshBasicMaterial({
-              color: color,
-              transparent: true,
-              opacity: haloOpacity,
-              side: THREE.BackSide,
-            })
-        );
+        // ✅ DON'T cache halo material - create new one with correct opacity
+        const haloMaterial = new THREE.MeshBasicMaterial({
+          color: color,
+          transparent: true,
+          opacity: haloOpacity,
+          side: THREE.BackSide,
+        });
 
         const halo = new THREE.Mesh(haloGeometry, haloMaterial);
         group.add(halo);
@@ -385,16 +372,12 @@ export default function LibraryGraph({
         );
 
         const ringColor = isSelected ? "#7c3aed" : "#3b82f6";
-        const ringMaterialKey = `ring-${ringColor}`;
-        const ringMaterial = getCachedMaterial(
-          ringMaterialKey,
-          () =>
-            new THREE.MeshBasicMaterial({
-              color: ringColor,
-              transparent: true,
-              opacity: 0.8,
-            })
-        );
+        // ✅ DON'T cache ring material - create new one each time
+        const ringMaterial = new THREE.MeshBasicMaterial({
+          color: ringColor,
+          transparent: true,
+          opacity: 0.8,
+        });
 
         const ring = new THREE.Mesh(ringGeometry, ringMaterial);
         ring.rotation.x = Math.PI / 2;
@@ -444,7 +427,6 @@ export default function LibraryGraph({
       config,
       getNodeLOD,
       getCachedGeometry,
-      getCachedMaterial,
     ]
   );
 
@@ -1278,7 +1260,6 @@ export default function LibraryGraph({
         nodeLabel={nodeLabel}
         linkLabel={linkLabel}
         nodeVal={getNodeVal}
-        nodeColor={getNodeColor}
         linkColor={getLinkColor}
         nodeThreeObject={createNodeObject}
         nodeThreeObjectExtend={false}
