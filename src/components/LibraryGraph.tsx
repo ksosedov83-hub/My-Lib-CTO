@@ -293,10 +293,9 @@ export default function LibraryGraph({
       const size = graphNode.val / 2 || 3;
       const color = new THREE.Color(graphNode.color);
 
-      let opacity = highlightNodes.size === 0 || highlightNodes.has(graphNode.id) ? 1 : 0.3;
-      if (activeSelectedThemes.length > 0) {
-        opacity = matchesFilter ? 1 : 0.1;
-      }
+      // ✅ ИСПРАВЛЕНО: Opacity только для hover/highlight, НЕ для фильтрации
+      // Фильтрация управляется через nodeColor prop (getNodeColor)
+      const opacity = highlightNodes.size === 0 || highlightNodes.has(graphNode.id) ? 1 : 0.3;
 
       const lod = getNodeLOD(graphNode);
       const segments = config.sphereSegments[lod];
@@ -440,7 +439,6 @@ export default function LibraryGraph({
       selectedBookId,
       hoveredNode,
       highlightNodes,
-      activeSelectedThemes,
       config,
       getNodeLOD,
       getCachedGeometry,
@@ -461,14 +459,9 @@ export default function LibraryGraph({
       const linkId = `${sourceNode.id}-${targetNode.id}`;
       const isHighlighted = highlightLinks.size === 0 || highlightLinks.has(linkId);
 
-      const sourceMatches = bookMatchesFilter(sourceNode.book);
-      const targetMatches = bookMatchesFilter(targetNode.book);
-      const bothMatch = sourceMatches && targetMatches;
-
-      let linkAlpha = isHighlighted ? 0.6 : 0.15;
-      if (activeSelectedThemes.length > 0) {
-        linkAlpha = bothMatch ? 0.6 : 0.05;
-      }
+      // ✅ ИСПРАВЛЕНО: LinkAlpha только для hover/highlight, НЕ для фильтрации
+      // Фильтрация управляется через linkColor prop (getLinkColor)
+      const linkAlpha = isHighlighted ? 0.6 : 0.15;
 
       const start = new THREE.Vector3(sourceNode.x || 0, sourceNode.y || 0, sourceNode.z || 0);
       const end = new THREE.Vector3(targetNode.x || 0, targetNode.y || 0, targetNode.z || 0);
@@ -557,14 +550,7 @@ export default function LibraryGraph({
 
       return group;
     },
-    [
-      highlightLinks,
-      activeSelectedThemes,
-      bookMatchesFilter,
-      config,
-      getCachedGeometry,
-      getCachedMaterial,
-    ]
+    [highlightLinks, config, getCachedGeometry, getCachedMaterial]
   );
 
   // FPS monitoring for auto mode
@@ -1197,9 +1183,22 @@ export default function LibraryGraph({
         activeSelectedThemes.includes(theme)
       );
 
-      // Активные узлы в 1.5 раза больше
+      // Активные узлы в 2.5 раза больше (было 1.5)
       const isActive = !isFiltered || matchesFilter;
-      return isActive ? baseSize * 1.5 : baseSize;
+
+      // ✅ ОТЛАДКА (удалить после проверки)
+      if (isFiltered && graphNode.id) {
+        console.log({
+          book: graphNode.name,
+          themes: graphNode.themes,
+          selectedThemes: activeSelectedThemes,
+          matchesFilter,
+          isActive,
+          size: isActive ? baseSize * 2.5 : baseSize,
+        });
+      }
+
+      return isActive ? baseSize * 2.5 : baseSize;
     },
     [activeSelectedThemes]
   );
@@ -1216,8 +1215,8 @@ export default function LibraryGraph({
         activeSelectedThemes.includes(theme)
       );
 
-      // Активные: 100% opacity, Неактивные: 40% opacity
-      const opacity = !isFiltered || matchesFilter ? 1.0 : 0.4;
+      // Активные: 100% opacity, Неактивные: 25% opacity (было 40%)
+      const opacity = !isFiltered || matchesFilter ? 1.0 : 0.25;
 
       // Преобразовать HEX цвет в RGBA с прозрачностью
       const hexColor = graphNode.color;
@@ -1246,8 +1245,8 @@ export default function LibraryGraph({
 
       const bothActive = sourceActive && targetActive;
 
-      // Оба активны: 70% opacity, Хотя бы один неактивен: 20% opacity
-      const opacity = bothActive ? 0.7 : 0.2;
+      // Оба активны: 80% opacity (было 70%), Хотя бы один неактивен: 15% opacity (было 20%)
+      const opacity = bothActive ? 0.8 : 0.15;
 
       // Нейтральный космический цвет связей
       const baseColor = UNIFIED_CONNECTION_COLOR;
