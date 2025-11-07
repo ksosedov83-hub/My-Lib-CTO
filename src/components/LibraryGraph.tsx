@@ -151,7 +151,6 @@ export default function LibraryGraph({
   const graphRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
-  const [highlightNodes, setHighlightNodes] = useState<Set<string>>(new Set());
   const [highlightLinks, setHighlightLinks] = useState<Set<string>>(new Set());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const animationFrameRef = useRef<number | undefined>(undefined);
@@ -173,14 +172,6 @@ export default function LibraryGraph({
   // Get active performance config
   const activeMode = performanceMode === "auto" ? detectedMode : performanceMode;
   const config = PERFORMANCE_CONFIGS[activeMode];
-
-  const bookMatchesFilter = useCallback(
-    (book: Book): boolean => {
-      if (activeSelectedThemes.length === 0) return true;
-      return book.themes.some((theme) => activeSelectedThemes.includes(theme));
-    },
-    [activeSelectedThemes]
-  );
 
   const getFilteredThemeCount = useCallback(
     (book: Book): number => {
@@ -247,6 +238,31 @@ export default function LibraryGraph({
     return { nodes, links };
   }, [books, connections, getBookColor]);
 
+  const filteredGraphData = useMemo(() => {
+    const isFiltered = activeSelectedThemes.length > 0;
+
+    if (!isFiltered) {
+      return graphData;
+    }
+
+    const filteredNodes = graphData.nodes.filter((node) =>
+      node.themes?.some((theme) => activeSelectedThemes.includes(theme))
+    );
+
+    const filteredNodeIds = new Set(filteredNodes.map((node) => node.id));
+
+    const filteredLinks = graphData.links.filter((link) => {
+      const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+      const targetId = typeof link.target === "string" ? link.target : link.target.id;
+      return filteredNodeIds.has(sourceId) && filteredNodeIds.has(targetId);
+    });
+
+    return {
+      nodes: filteredNodes,
+      links: filteredLinks,
+    };
+  }, [graphData, activeSelectedThemes]);
+
   // Get or create cached geometry
   const getCachedGeometry = useCallback((key: string, create: () => THREE.BufferGeometry) => {
     if (!geometryCache.current.has(key)) {
@@ -285,7 +301,6 @@ export default function LibraryGraph({
       const graphNode = node as GraphNode;
       const group = new THREE.Group();
 
-      const matchesFilter = bookMatchesFilter(graphNode.book);
       const filteredThemeCount = getFilteredThemeCount(graphNode.book);
       const isSelected = selectedBookId === graphNode.id;
       const isHovered = hoveredNode?.id === graphNode.id;
@@ -293,10 +308,7 @@ export default function LibraryGraph({
       const size = graphNode.val / 2 || 3;
       const color = new THREE.Color(graphNode.color);
 
-      let opacity = highlightNodes.size === 0 || highlightNodes.has(graphNode.id) ? 1 : 0.3;
-      if (activeSelectedThemes.length > 0) {
-        opacity = matchesFilter ? 1 : 0.1;
-      }
+      const opacity = 1;
 
       const lod = getNodeLOD(graphNode);
       const segments = config.sphereSegments[lod];
@@ -402,7 +414,7 @@ export default function LibraryGraph({
       }
 
       // Badge only for high LOD with multiple themes
-      if (filteredThemeCount > 1 && matchesFilter && lod === "high") {
+      if (filteredThemeCount > 1 && lod === "high") {
         const canvas = document.createElement("canvas");
         canvas.width = 64;
         canvas.height = 64;
@@ -435,12 +447,9 @@ export default function LibraryGraph({
       return group;
     },
     [
-      bookMatchesFilter,
       getFilteredThemeCount,
       selectedBookId,
       hoveredNode,
-      highlightNodes,
-      activeSelectedThemes,
       config,
       getNodeLOD,
       getCachedGeometry,
@@ -461,14 +470,7 @@ export default function LibraryGraph({
       const linkId = `${sourceNode.id}-${targetNode.id}`;
       const isHighlighted = highlightLinks.size === 0 || highlightLinks.has(linkId);
 
-      const sourceMatches = bookMatchesFilter(sourceNode.book);
-      const targetMatches = bookMatchesFilter(targetNode.book);
-      const bothMatch = sourceMatches && targetMatches;
-
-      let linkAlpha = isHighlighted ? 0.6 : 0.15;
-      if (activeSelectedThemes.length > 0) {
-        linkAlpha = bothMatch ? 0.6 : 0.05;
-      }
+      const linkAlpha = isHighlighted ? 0.6 : 0.15;
 
       const start = new THREE.Vector3(sourceNode.x || 0, sourceNode.y || 0, sourceNode.z || 0);
       const end = new THREE.Vector3(targetNode.x || 0, targetNode.y || 0, targetNode.z || 0);
@@ -557,14 +559,7 @@ export default function LibraryGraph({
 
       return group;
     },
-    [
-      highlightLinks,
-      activeSelectedThemes,
-      bookMatchesFilter,
-      config,
-      getCachedGeometry,
-      getCachedMaterial,
-    ]
+    [highlightLinks, config, getCachedGeometry, getCachedMaterial]
   );
 
   // FPS monitoring for auto mode
@@ -684,17 +679,10 @@ export default function LibraryGraph({
 
       if (!graphNode) {
         setHoveredNode(null);
-        setHighlightNodes(new Set());
         setHighlightLinks(new Set());
         if (onNodeHover) {
           onNodeHover(null);
         }
-        return;
-      }
-
-      // Only allow hover on matching nodes when filter is active
-      if (activeSelectedThemes.length > 0 && !bookMatchesFilter(graphNode.book)) {
-        // Do not set hover state for non-matching books
         return;
       }
 
@@ -703,29 +691,34 @@ export default function LibraryGraph({
         onNodeHover(graphNode.book);
       }
 
-      const neighbors = new Set<string>();
       const linkIds = new Set<string>();
 
-      graphData.links.forEach((link) => {
+      filteredGraphData.links.forEach((link) => {
         const sourceId = typeof link.source === "string" ? link.source : link.source.id;
         const targetId = typeof link.target === "string" ? link.target : link.target.id;
 
         if (sourceId === graphNode.id) {
-          neighbors.add(targetId);
           linkIds.add(`${sourceId}-${targetId}`);
         }
         if (targetId === graphNode.id) {
-          neighbors.add(sourceId);
           linkIds.add(`${sourceId}-${targetId}`);
         }
       });
 
-      neighbors.add(graphNode.id);
-      setHighlightNodes(neighbors);
       setHighlightLinks(linkIds);
     },
-    [graphData.links, onNodeHover, activeSelectedThemes, bookMatchesFilter]
+    [filteredGraphData.links, onNodeHover]
   );
+
+  useEffect(() => {
+    if (!hoveredNode) return;
+
+    const stillVisible = filteredGraphData.nodes.some((node) => node.id === hoveredNode.id);
+    if (!stillVisible) {
+      setHoveredNode(null);
+      setHighlightLinks(new Set());
+    }
+  }, [filteredGraphData, hoveredNode]);
 
   const handleNodeClick = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -990,7 +983,7 @@ export default function LibraryGraph({
       }
 
       // Get filtered nodes with positions
-      const filteredNodes = graphData.nodes.filter(
+      const filteredNodes = filteredGraphData.nodes.filter(
         (n) =>
           filteredNodeIds.includes(n.id) &&
           n.x !== undefined &&
@@ -1060,7 +1053,7 @@ export default function LibraryGraph({
 
       console.log("✅ Camera moved to filtered nodes!");
     },
-    [graphData]
+    [filteredGraphData]
   );
 
   // Assign to ref in useEffect to avoid ref mutation during render
@@ -1073,10 +1066,7 @@ export default function LibraryGraph({
     console.log("🔄 Filter changed, activeSelectedThemes:", activeSelectedThemes);
 
     if (activeSelectedThemes.length > 0) {
-      // Get IDs of filtered nodes
-      const filteredIds = graphData.nodes
-        .filter((node) => node.themes.some((t) => activeSelectedThemes.includes(t)))
-        .map((n) => n.id);
+      const filteredIds = filteredGraphData.nodes.map((node) => node.id);
 
       console.log("📚 Filtered book IDs:", filteredIds);
 
@@ -1089,7 +1079,7 @@ export default function LibraryGraph({
       // Return to initial view when filter is cleared
       resetCamera();
     }
-  }, [activeSelectedThemes, graphData.nodes, resetCamera]);
+  }, [activeSelectedThemes, filteredGraphData, resetCamera]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -1184,82 +1174,6 @@ export default function LibraryGraph({
     setPerformanceMode(modes[nextIndex]);
   }, [performanceMode, setPerformanceMode]);
 
-  // ✅ ПРАВИЛЬНАЯ ФИЛЬТРАЦИЯ: nodeVal (размер узла)
-  const getNodeVal = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (node: any) => {
-      const graphNode = node as GraphNode;
-      const baseSize = graphNode.val || 5;
-
-      // Проверка фильтрации
-      const isFiltered = activeSelectedThemes.length > 0;
-      const matchesFilter = graphNode.themes.some((theme: string) =>
-        activeSelectedThemes.includes(theme)
-      );
-
-      // Активные узлы в 1.5 раза больше
-      const isActive = !isFiltered || matchesFilter;
-      return isActive ? baseSize * 1.5 : baseSize;
-    },
-    [activeSelectedThemes]
-  );
-
-  // ✅ ПРАВИЛЬНАЯ ФИЛЬТРАЦИЯ: nodeColor (цвет узла с прозрачностью)
-  const getNodeColor = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (node: any) => {
-      const graphNode = node as GraphNode;
-
-      // Проверка фильтрации
-      const isFiltered = activeSelectedThemes.length > 0;
-      const matchesFilter = graphNode.themes.some((theme: string) =>
-        activeSelectedThemes.includes(theme)
-      );
-
-      // Активные: 100% opacity, Неактивные: 40% opacity
-      const opacity = !isFiltered || matchesFilter ? 1.0 : 0.4;
-
-      // Преобразовать HEX цвет в RGBA с прозрачностью
-      const hexColor = graphNode.color;
-      const r = parseInt(hexColor.slice(1, 3), 16);
-      const g = parseInt(hexColor.slice(3, 5), 16);
-      const b = parseInt(hexColor.slice(5, 7), 16);
-
-      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-    },
-    [activeSelectedThemes]
-  );
-
-  // ✅ ПРАВИЛЬНАЯ ФИЛЬТРАЦИЯ: linkColor (цвет связи с прозрачностью)
-  const getLinkColor = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (link: any) => {
-      const isFiltered = activeSelectedThemes.length > 0;
-
-      const sourceNode = link.source as GraphNode;
-      const targetNode = link.target as GraphNode;
-
-      const sourceActive =
-        !isFiltered || sourceNode.themes?.some((t: string) => activeSelectedThemes.includes(t));
-      const targetActive =
-        !isFiltered || targetNode.themes?.some((t: string) => activeSelectedThemes.includes(t));
-
-      const bothActive = sourceActive && targetActive;
-
-      // Оба активны: 70% opacity, Хотя бы один неактивен: 20% opacity
-      const opacity = bothActive ? 0.7 : 0.2;
-
-      // Нейтральный космический цвет связей
-      const baseColor = UNIFIED_CONNECTION_COLOR;
-      const r = parseInt(baseColor.slice(1, 3), 16);
-      const g = parseInt(baseColor.slice(3, 5), 16);
-      const b = parseInt(baseColor.slice(5, 7), 16);
-
-      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-    },
-    [activeSelectedThemes]
-  );
-
   return (
     <div
       ref={containerRef}
@@ -1274,12 +1188,9 @@ export default function LibraryGraph({
 
       <ForceGraph3D
         ref={graphRef}
-        graphData={graphData}
+        graphData={filteredGraphData}
         nodeLabel={nodeLabel}
         linkLabel={linkLabel}
-        nodeVal={getNodeVal}
-        nodeColor={getNodeColor}
-        linkColor={getLinkColor}
         nodeThreeObject={createNodeObject}
         nodeThreeObjectExtend={false}
         linkThreeObject={createLinkObject}
@@ -1317,11 +1228,7 @@ export default function LibraryGraph({
           <span className="text-sm text-purple-200">
             Показано:{" "}
             <span className="font-semibold text-purple-100">
-              {
-                graphData.nodes.filter((node) =>
-                  node.themes.some((t) => activeSelectedThemes.includes(t))
-                ).length
-              }
+              {filteredGraphData.nodes.length}
             </span>{" "}
             из {graphData.nodes.length} книг
           </span>
