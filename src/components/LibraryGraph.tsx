@@ -762,31 +762,35 @@ export default function LibraryGraph({
       // Configure orbit controls for better panning
       const controls = graphRef.current.controls();
       if (controls) {
-        console.log('🔧 Configuring OrbitControls for pan...');
-        
+        console.log("🔧 Configuring OrbitControls for pan...");
+
         // CRITICAL: Enable panning with right and middle mouse buttons
         controls.enablePan = true;
         controls.panSpeed = 1.0;
         controls.screenSpacePanning = true; // Pan in screen space (more intuitive)
-        
+
         // КРИТИЧНО: Переназначить кнопки мыши
         // Импортировать THREE если нужно: import * as THREE from 'three';
         controls.mouseButtons = {
-          LEFT: THREE.MOUSE.ROTATE,    // 0 - left button for rotation
-          MIDDLE: THREE.MOUSE.PAN,     // 1 - middle button for pan
-          RIGHT: THREE.MOUSE.PAN       // 2 - right button for pan (было DOLLY!)
+          LEFT: THREE.MOUSE.ROTATE, // 0 - left button for rotation
+          MIDDLE: THREE.MOUSE.PAN, // 1 - middle button for pan
+          RIGHT: THREE.MOUSE.PAN, // 2 - right button for pan (было DOLLY!)
         };
-        
+
         // Apply changes
         controls.update();
-        
-        console.log('✅ Pan enabled:', controls.enablePan);
-        console.log('✅ Pan speed:', controls.panSpeed);
-        console.log('✅ Screen space panning:', controls.screenSpacePanning);
-        console.log('✅ Mouse buttons:', controls.mouseButtons);
-        console.log('✅ Mouse buttons RIGHT:', controls.mouseButtons.RIGHT, '(should be 2 for PAN)');
+
+        console.log("✅ Pan enabled:", controls.enablePan);
+        console.log("✅ Pan speed:", controls.panSpeed);
+        console.log("✅ Screen space panning:", controls.screenSpacePanning);
+        console.log("✅ Mouse buttons:", controls.mouseButtons);
+        console.log(
+          "✅ Mouse buttons RIGHT:",
+          controls.mouseButtons.RIGHT,
+          "(should be 2 for PAN)"
+        );
       } else {
-        console.error('❌ Controls not found!');
+        console.error("❌ Controls not found!");
       }
 
       // Store initial camera position (only once)
@@ -966,25 +970,39 @@ export default function LibraryGraph({
     () => {}
   );
 
-  focusOnFilteredNodesRef.current = useCallback(
+  const focusOnFilteredNodes = useCallback(
     (filteredNodeIds: string[], retryCount: number = 0) => {
-      console.log('🎯 focusOnFilteredNodes called with IDs:', filteredNodeIds, 'retry:', retryCount);
-      
+      console.log(
+        "🎯 focusOnFilteredNodes called with IDs:",
+        filteredNodeIds,
+        "retry:",
+        retryCount
+      );
+
       if (!graphRef.current || filteredNodeIds.length === 0) {
-        console.log('❌ Early return: no graph or no IDs');
+        console.log("❌ Early return: no graph or no IDs");
         return;
       }
 
       // Get filtered nodes with positions
       const filteredNodes = graphData.nodes.filter(
-        (n) => filteredNodeIds.includes(n.id) && n.x !== undefined && n.y !== undefined && n.z !== undefined
+        (n) =>
+          filteredNodeIds.includes(n.id) &&
+          n.x !== undefined &&
+          n.y !== undefined &&
+          n.z !== undefined
       );
 
-      console.log('📍 Filtered nodes with coordinates:', filteredNodes.length, '/', filteredNodeIds.length);
+      console.log(
+        "📍 Filtered nodes with coordinates:",
+        filteredNodes.length,
+        "/",
+        filteredNodeIds.length
+      );
 
       // If positions aren't ready yet, retry up to 5 times
       if (filteredNodes.length === 0 && retryCount < 5) {
-        console.log('⏳ No coordinates yet, retrying in 500ms...');
+        console.log("⏳ No coordinates yet, retrying in 500ms...");
         setTimeout(() => {
           focusOnFilteredNodesRef.current(filteredNodeIds, retryCount + 1);
         }, 500);
@@ -992,7 +1010,7 @@ export default function LibraryGraph({
       }
 
       if (filteredNodes.length === 0) {
-        console.log('❌ No nodes with coordinates after retries');
+        console.log("❌ No nodes with coordinates after retries");
         return;
       }
 
@@ -1012,22 +1030,21 @@ export default function LibraryGraph({
       const centerY = (minY + maxY) / 2;
       const centerZ = (minZ + maxZ) / 2;
 
-      console.log('📐 Center position:', { x: centerX, y: centerY, z: centerZ });
+      console.log("📐 Center position:", { x: centerX, y: centerY, z: centerZ });
 
       const sizeX = maxX - minX;
       const sizeY = maxY - minY;
       const sizeZ = maxZ - minZ;
       const maxDim = Math.max(sizeX, sizeY, sizeZ, 50); // Minimum size of 50 for single nodes
 
-      console.log('📏 Bounding box size:', { sizeX, sizeY, sizeZ, maxDim });
+      console.log("📏 Bounding box size:", { sizeX, sizeY, sizeZ, maxDim });
 
       // Calculate camera distance with padding
       const fov = 75; // field of view
       const paddingFactor = 2.0; // Increased padding for better visibility
-      const cameraDistance =
-        ((maxDim / 2) / Math.tan((fov / 2) * (Math.PI / 180))) * paddingFactor;
+      const cameraDistance = (maxDim / 2 / Math.tan((fov / 2) * (Math.PI / 180))) * paddingFactor;
 
-      console.log('📷 Camera distance:', cameraDistance);
+      console.log("📷 Camera distance:", cameraDistance);
 
       // Smooth transition to the filtered nodes
       graphRef.current.cameraPosition(
@@ -1036,29 +1053,34 @@ export default function LibraryGraph({
         1800 // 1.8 second transition
       );
 
-      console.log('✅ Camera moved to filtered nodes!');
+      console.log("✅ Camera moved to filtered nodes!");
     },
     [graphData]
   );
 
+  // Update ref when callback changes
+  useEffect(() => {
+    focusOnFilteredNodesRef.current = focusOnFilteredNodes;
+  }, [focusOnFilteredNodes]);
+
   // Trigger autofocus when filter changes
   useEffect(() => {
-    console.log('🔄 Filter changed, selectedThemes:', selectedThemes);
-    
+    console.log("🔄 Filter changed, selectedThemes:", selectedThemes);
+
     if (selectedThemes.length > 0) {
       // Get IDs of filtered nodes
       const filteredIds = graphData.nodes
         .filter((node) => node.themes.some((t) => selectedThemes.includes(t)))
         .map((n) => n.id);
 
-      console.log('📚 Filtered book IDs:', filteredIds);
+      console.log("📚 Filtered book IDs:", filteredIds);
 
       // Small delay to let the force simulation stabilize
       setTimeout(() => {
         focusOnFilteredNodesRef.current(filteredIds);
       }, 800);
     } else {
-      console.log('🏠 Filter cleared, returning to initial view');
+      console.log("🏠 Filter cleared, returning to initial view");
       // Return to initial view when filter is cleared
       resetCamera();
     }
@@ -1211,9 +1233,11 @@ export default function LibraryGraph({
           <span className="text-sm text-purple-200">
             Показано:{" "}
             <span className="font-semibold text-purple-100">
-              {graphData.nodes.filter((node) =>
-                node.themes.some((t) => selectedThemes.includes(t))
-              ).length}
+              {
+                graphData.nodes.filter((node) =>
+                  node.themes.some((t) => selectedThemes.includes(t))
+                ).length
+              }
             </span>{" "}
             из {graphData.nodes.length} книг
           </span>
